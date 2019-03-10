@@ -19,7 +19,7 @@ public class Microservice {
 
     public Microservice(){}
 
-    public Microservice(String scsName, String appName, @Nullable String version) {
+    public Microservice(@Nullable String scsName, String appName, @Nullable String version) {
         this.appId = scsName + ":" + appName + ":" + version;
         this.scsName = scsName;
         this.appName = appName;
@@ -79,7 +79,11 @@ public class Microservice {
         endpoints.add(endpoint);
     }
 
-    @Relationship(type = "HTTP-REQUEST", direction = Relationship.OUTGOING)
+    public Set<Endpoint> getOwnEndpoints() {
+        return endpoints;
+    }
+
+    @Relationship(type = "HTTP_REQUEST", direction = Relationship.OUTGOING)
     public Set<Endpoint> httpRequestEndpoints;
 
     public void httpRequestToEndpoint(Endpoint endpoint) {

@@ -23,4 +23,6 @@ public interface EndpointRepository extends GraphRepository<Endpoint> {
             "WHERE sm.appId = {smId} AND tm.appName = {tmName} AND te.endpointId = {teId} RETURN te")
     List<Endpoint> findTargetEndpointNotSpecVer(@Param("smId") String sourceAppId, @Param("tmName") String targetAppName,
                                                @Param("teId") String targetEndpointId);
+
+    //List<Endpoint> findNull
 }

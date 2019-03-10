@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.bean.actuators.Info;
 import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
-import com.soselab.microservicegraphplatform.bean.neo4j.Endpoint;
-import com.soselab.microservicegraphplatform.bean.neo4j.Instance;
-import com.soselab.microservicegraphplatform.bean.neo4j.Microservice;
-import com.soselab.microservicegraphplatform.bean.neo4j.ServiceRegistry;
+import com.soselab.microservicegraphplatform.bean.neo4j.*;
 import com.soselab.microservicegraphplatform.bean.eureka.Application;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
 import com.soselab.microservicegraphplatform.repositories.EndpointRepository;
@@ -16,33 +13,33 @@ import com.soselab.microservicegraphplatform.repositories.MicroserviceRepository
 import com.soselab.microservicegraphplatform.repositories.ServiceRegistryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.util.*;
 
-public class RefreshScheduledTask extends TimerTask {
+@Configuration
+public class RefreshScheduledTask {
 
     private static final Logger logger = LoggerFactory.getLogger(RefreshScheduledTask.class);
 
+    @Autowired
     private ServiceRegistryRepository serviceRegistryRepository;
+    @Autowired
     private InstanceRepository instanceRepository;
+    @Autowired
     private MicroserviceRepository microserviceRepository;
+    @Autowired
     private EndpointRepository endpointRepository;
 
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
 
-    public RefreshScheduledTask(ServiceRegistryRepository serviceRegistryRepository,
-                                InstanceRepository instanceRepository, MicroserviceRepository microserviceRepository,
-                                EndpointRepository endpointRepository) {
-        this.serviceRegistryRepository = serviceRegistryRepository;
-        this.instanceRepository = instanceRepository;
-        this.microserviceRepository = microserviceRepository;
-        this.endpointRepository = endpointRepository;
-    }
-
+    @Scheduled(fixedDelay = 10000)
     public void run() {
         // Loop each registry
         ArrayList<ServiceRegistry> registries = serviceRegistryRepository.findAll();
@@ -172,23 +169,28 @@ public class RefreshScheduledTask extends TimerTask {
     private Set<Endpoint> getTargetEndpoints(String sourceAppId, Map<String, Object> targets) {
         Set<Endpoint> targetEndpoints = new HashSet<>();
         targets.forEach((targetServiceKey, targetServiceValue) -> {
-            Map<String, Object> targetVersionMap = mapper.convertValue(targetServiceValue, new TypeReference<Map<String, Object>>(){});
+            String targetServiceName = targetServiceKey.toUpperCase();
+            Map<String, Object> targetVersionMap =
+                    mapper.convertValue(targetServiceValue, new TypeReference<Map<String, Object>>(){});
             targetVersionMap.forEach((targetVersionKey, targetVersionValue) -> {
-                Map<String, Object> targetPathMap = mapper.convertValue(targetVersionValue, new TypeReference<Map<String, Object>>(){});
+                Map<String, Object> targetPathMap =
+                        mapper.convertValue(targetVersionValue, new TypeReference<Map<String, Object>>(){});
                 targetPathMap.forEach((targetPathKey, targetPathValue) -> {
                     ArrayList<String> targetMethods = (ArrayList<String>) targetPathValue;
                     for (String targetMethod: targetMethods) {
                         String targetEndpointId =  targetMethod + ":" + targetPathKey;
                         if (targetVersionKey.equals("notSpecified")) {
                             List<Endpoint> targetEndpoint = endpointRepository.findTargetEndpointNotSpecVer(
-                                    sourceAppId, targetServiceKey.toUpperCase(), targetEndpointId
+                                    sourceAppId, targetServiceName, targetEndpointId
                             );
-                            targetEndpoints.addAll(targetEndpoint);
+                            targetEndpoints.addAll(nullTargetDetector(targetEndpoint, sourceAppId, targetServiceName,
+                                    targetMethod, targetPathKey));
                         } else {
                             Endpoint targetEndpoint = endpointRepository.findTargetEndpoint(
-                                    sourceAppId, targetServiceKey.toUpperCase(), targetVersionKey,
+                                    sourceAppId, targetServiceName, targetVersionKey,
                                     targetEndpointId);
-                            targetEndpoints.add(targetEndpoint);
+                            targetEndpoints.add(nullTargetDetector(targetEndpoint, sourceAppId, targetServiceName,
+                                    targetMethod, targetPathKey, targetVersionKey));
                         }
                     }
                 });
@@ -196,6 +198,62 @@ public class RefreshScheduledTask extends TimerTask {
         });
 
         return targetEndpoints;
+    }
+
+    private List<Endpoint> nullTargetDetector(List<Endpoint> targetEndpoints, String sourceAppId, String targetName,
+                                              String targetMethod, String targetPath) {
+        if (targetEndpoints != null && targetEndpoints.size() > 0) {
+            // Normal situation
+            return targetEndpoints;
+        } else {
+            List<Endpoint> nullEndpoints = new ArrayList<>();
+            List<Microservice> targetServices = microserviceRepository.findByAppNameInSameSys(
+                    sourceAppId, targetName);
+            if (targetServices != null && targetServices.size() > 0) {
+                // Found null target endpoints.
+                for (Microservice targetService: targetServices) {
+                    Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
+                    nullTargetEndpoint.ownBy(targetService);
+                    nullEndpoints.add(nullTargetEndpoint);
+                    logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
+                }
+            } else {
+                // Found null target service and endpoint.
+                Microservice nullTargetMicroservice = new NullMicroservice(
+                        sourceAppId.split(":")[0], targetName, null);
+                Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
+                nullTargetEndpoint.ownBy(nullTargetMicroservice);
+                nullEndpoints.add(nullTargetEndpoint);
+                logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+            }
+            return nullEndpoints;
+        }
+    }
+
+    private Endpoint nullTargetDetector(Endpoint targetEndpoint, String sourceAppId, String targetName,
+                                        String targetMethod, String targetPath, String targetVersion) {
+        if (targetEndpoint != null) {
+            // Normal situation
+            return targetEndpoint;
+        } else {
+            Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
+            Microservice targetService = microserviceRepository.findByAppNameAndVersionInSameSys(
+                    sourceAppId, targetName, targetVersion
+            );
+            if (targetService != null) {
+                // Found null target endpoint.
+                nullTargetEndpoint.ownBy(targetService);
+                logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
+            } else {
+                // Found null target service and endpoint.
+                Microservice nullTargetMicroservice = new NullMicroservice(
+                        sourceAppId.split(":")[0], targetName, targetVersion
+                );
+                nullTargetEndpoint.ownBy(nullTargetMicroservice);
+                logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+            }
+            return nullTargetEndpoint;
+        }
     }
 
     // Remove old apps that are not in refresh list
@@ -208,7 +266,7 @@ public class RefreshScheduledTask extends TimerTask {
                 }
             }
             if (!isInRefreshList) {
-                microserviceRepository.deleteWithEndpointsByAppId(dbApp.getAppId());
+                microserviceRepository.deleteWithRelateByAppId(dbApp.getAppId());
                 logger.info("Remove microservice: " + dbApp.getAppId());
             }
         }

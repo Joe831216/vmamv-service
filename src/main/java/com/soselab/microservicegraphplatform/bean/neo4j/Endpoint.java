@@ -55,7 +55,11 @@ public class Endpoint {
         this.microservice = microservice;
     }
 
-    @Relationship(type = "HTTP-REQUEST", direction = Relationship.OUTGOING)
+    public Microservice getOwner() {
+        return microservice;
+    }
+
+    @Relationship(type = "HTTP_REQUEST", direction = Relationship.OUTGOING)
     public Set<Endpoint> httpRequestEndpoints;
 
     public void httpRequestToEndpoint(Endpoint endpoint) {
@@ -64,4 +68,9 @@ public class Endpoint {
         }
         httpRequestEndpoints.add(endpoint);
     }
+
+    public Set<Endpoint> getHttpRequestEndpoints() {
+        return httpRequestEndpoints;
+    }
+
 }
