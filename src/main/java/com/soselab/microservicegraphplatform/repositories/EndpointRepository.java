@@ -24,5 +24,7 @@ public interface EndpointRepository extends GraphRepository<Endpoint> {
     List<Endpoint> findTargetEndpointNotSpecVer(@Param("smId") String sourceAppId, @Param("tmName") String targetAppName,
                                                @Param("teId") String targetEndpointId);
 
-    //List<Endpoint> findNull
+    @Query("MATCH (ne:NullEndpoint) WHERE NOT (ne)<-[:HTTP_REQUEST]-() DETACH DELETE ne")
+    Endpoint deleteUnusefulNullEndpoint();
+
 }

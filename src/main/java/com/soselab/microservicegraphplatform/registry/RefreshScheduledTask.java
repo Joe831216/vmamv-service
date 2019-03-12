@@ -270,6 +270,8 @@ public class RefreshScheduledTask {
                 logger.info("Remove microservice: " + dbApp.getAppId());
             }
         }
+        endpointRepository.deleteUnusefulNullEndpoint();
+        microserviceRepository.deleteUnusefulNullMicroservice();
     }
 
 }
