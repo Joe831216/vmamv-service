@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform.registry;
+package com.soselab.microservicegraphplatform.tasks;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,11 +41,11 @@ public class RefreshScheduledTask {
 
     @Scheduled(fixedDelay = 10000)
     public void run() {
-        // Loop each registry
+        // Loop each tasks
         ArrayList<ServiceRegistry> registries = serviceRegistryRepository.findAll();
         if (registries.size() > 0) {
             for (ServiceRegistry serviceRegistry : registries) {
-                // Get latest app list by request the first instance that own by this registry
+                // Get latest app list by request the first instance that own by this tasks
                 String scsName = serviceRegistry.getScsName();
                 ArrayList<Instance> instances = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
                 if (instances.size() > 0) {

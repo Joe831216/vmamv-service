@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform.registry;
+package com.soselab.microservicegraphplatform.controllers;
 
 import com.soselab.microservicegraphplatform.bean.mgp.Application;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
@@ -12,22 +12,18 @@ import com.soselab.microservicegraphplatform.repositories.ServiceRegistryReposit
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.http.HttpServletRequest;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
 
 @RestController
 @RequestMapping("/registry")
-public class Controller {
+public class RegistryController {
 
-    private static final Logger logger = LoggerFactory.getLogger(Controller.class);
+    private static final Logger logger = LoggerFactory.getLogger(RegistryController.class);
 
     @Autowired
     ServiceRegistryRepository serviceRegistryRepository;
@@ -50,7 +46,7 @@ public class Controller {
             logger.info("getRemoteAddr: " + request.getRemoteAddr());
             logger.info("getRemotePort: " + request.getRemotePort());
             for (Application app : registerInfo.getApplications()) {
-                // If this app (service registry) is not in neo4j then save to neo4j DB
+                // If this app (service tasks) is not in neo4j then save to neo4j DB
                 String appId = app.getAppId();
                 if (serviceRegistryRepository.findByAppId(appId) == null) {
                     String scsName = app.getScsName();
@@ -58,7 +54,7 @@ public class Controller {
                     String version = app.getVersion();
                     ServiceRegistry serviceRegistry = new ServiceRegistry(scsName, appName, version);
                     serviceRegistryRepository.save(serviceRegistry);
-                    logger.info("Add service registry: " + appId);
+                    logger.info("Add service tasks: " + appId);
                 }
                 // Loop the instances
                 for (MgpInstance ins : app.getInstances()) {
@@ -72,7 +68,7 @@ public class Controller {
                         Instance instance = new Instance(appName, hostName, ipAddr, port);
                         instance.ownBy(serviceRegistryRepository.findByAppId(appId));
                         instanceRepository.save(instance);
-                        logger.info("Add service registry instance: " + instanceId);
+                        logger.info("Add service tasks instance: " + instanceId);
                     }
                 }
             }
