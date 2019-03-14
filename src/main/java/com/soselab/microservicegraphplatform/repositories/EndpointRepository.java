@@ -14,6 +14,9 @@ public interface EndpointRepository extends GraphRepository<Endpoint> {
     @Query("MATCH (e:Endpoint)<-[:OWN]-(m:Microservice) WHERE m.appId = {appId} AND e.endpointId = {endpointId} RETURN e")
     Endpoint findByEndpointIdAndAppId(@Param("endpointId") String endpointId, @Param("appId") String appId);
 
+    @Query("MATCH (e:NullEndpoint)<-[:OWN]-(m:Microservice) WHERE m.appId = {appId} AND e.endpointId = {endpointId} RETURN e")
+    Endpoint findByNullEndpointAndAppId(@Param("endpointId") String endpointId, @Param("appId") String appId);
+
     @Query("MATCH (sm:Microservice)-[:REGISTER]->(:ServiceRegistry)<-[:REGISTER]-(tm:Microservice)-[:OWN]->(te:Endpoint) " +
             "WHERE sm.appId = {smId} AND tm.appName = {tmName} AND tm.version = {tmVer} AND te.endpointId = {teId} RETURN te")
     Endpoint findTargetEndpoint(@Param("smId") String sourceAppId, @Param("tmName") String targetAppName,
@@ -25,6 +28,6 @@ public interface EndpointRepository extends GraphRepository<Endpoint> {
                                                @Param("teId") String targetEndpointId);
 
     @Query("MATCH (ne:NullEndpoint) WHERE NOT (ne)<-[:HTTP_REQUEST]-() DETACH DELETE ne")
-    Endpoint deleteUnusefulNullEndpoint();
+    void deleteUselessNullEndpoint();
 
 }

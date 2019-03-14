@@ -5,8 +5,7 @@ public class NullEndpoint extends Endpoint {
     public NullEndpoint() {
     }
 
-    public NullEndpoint(String method, String path) {
-        super(method, path);
+    public NullEndpoint(String appName, String method, String path) {
+        super(appName, method, path);
     }
-
 }

@@ -42,7 +42,7 @@ public interface MicroserviceRepository extends GraphRepository<Microservice> {
     Microservice deleteWithRelateByAppId(@Param("appId") String appId);
 
     @Query("MATCH (nm:NullMicroservice) WHERE NOT (nm)-[:OWN]->() DETACH DELETE nm")
-    Microservice deleteUnusefulNullMicroservice();
+    Microservice deleteUselessNullMicroservice();
 
     @Query("MATCH (m:Microservice)-[:REGISTER]->(s:ServiceRegistry) WHERE s.appId = {appId} RETURN m")
     ArrayList<Microservice> findAllByServiceRegistryAppId(@Param("appId") String appId);

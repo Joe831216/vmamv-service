@@ -12,13 +12,15 @@ public class Endpoint {
     private Long id;
 
     private String endpointId;
+    private String appName;
     private String method;
     private String path;
 
     public Endpoint() {
     }
 
-    public Endpoint(String method, String path) {
+    public Endpoint(String appName, String method, String path) {
+        this.appName = appName;
         this.method = method;
         this.path = path;
         this.endpointId = method + ":" + path;
@@ -30,6 +32,14 @@ public class Endpoint {
 
     public void setEndpointId(String endpointId) {
         this.endpointId = endpointId;
+    }
+
+    public String getAppName() {
+        return appName;
+    }
+
+    public void setAppName(String appName) {
+        this.appName = appName;
     }
 
     public String getMethod() {

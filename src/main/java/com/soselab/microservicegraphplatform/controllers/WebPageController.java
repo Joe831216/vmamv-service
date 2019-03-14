@@ -1,7 +1,6 @@
 package com.soselab.microservicegraphplatform.controllers;
 
-import com.soselab.microservicegraphplatform.repositories.GeneralRepository;
-import com.soselab.microservicegraphplatform.repositories.MicroserviceRepository;
+import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +15,11 @@ public class WebPageController {
     private static final Logger logger = LoggerFactory.getLogger(WebPageController.class);
 
     @Autowired
-    GeneralRepository generalRepository;
+    RefreshScheduledTask refreshScheduledTask;
 
     @GetMapping("/graph")
     public String getGraph() {
-        return generalRepository.getServicesAndEndpointsRelJson();
+        return refreshScheduledTask.getGraphJson();
     }
 
 }

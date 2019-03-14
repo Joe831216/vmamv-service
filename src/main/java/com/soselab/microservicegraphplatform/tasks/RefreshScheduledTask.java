@@ -7,10 +7,7 @@ import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
 import com.soselab.microservicegraphplatform.bean.neo4j.*;
 import com.soselab.microservicegraphplatform.bean.eureka.Application;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
-import com.soselab.microservicegraphplatform.repositories.EndpointRepository;
-import com.soselab.microservicegraphplatform.repositories.InstanceRepository;
-import com.soselab.microservicegraphplatform.repositories.MicroserviceRepository;
-import com.soselab.microservicegraphplatform.repositories.ServiceRegistryRepository;
+import com.soselab.microservicegraphplatform.repositories.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 
@@ -27,6 +25,8 @@ public class RefreshScheduledTask {
 
     private static final Logger logger = LoggerFactory.getLogger(RefreshScheduledTask.class);
 
+    @Autowired
+    private GeneralRepository generalRepository;
     @Autowired
     private ServiceRegistryRepository serviceRegistryRepository;
     @Autowired
@@ -39,13 +39,30 @@ public class RefreshScheduledTask {
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
 
+    private boolean graphUpdated = false;
+    private String graphJson;
+
+    @PostConstruct
+    private void init() {
+        graphJson = generalRepository.getGraphJson();
+    }
+
     @Scheduled(fixedDelay = 10000)
     public void run() {
-        // Loop each tasks
+        refreshGraphDB();
+        graphJson = graphUpdated ? generalRepository.getGraphJson() : graphJson;
+    }
+
+    public String getGraphJson() {
+        return graphJson;
+    }
+
+    private void refreshGraphDB() {
+        // For each service registry
         ArrayList<ServiceRegistry> registries = serviceRegistryRepository.findAll();
         if (registries.size() > 0) {
             for (ServiceRegistry serviceRegistry : registries) {
-                // Get latest app list by request the first instance that own by this tasks
+                // Get latest app list by request the first instance that own by this service registry
                 String scsName = serviceRegistry.getScsName();
                 ArrayList<Instance> instances = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
                 if (instances.size() > 0) {
@@ -96,6 +113,7 @@ public class RefreshScheduledTask {
                 newAppIdsAndUrl.put(key, value);
             }
         });
+        graphUpdated = !newAppIdsAndUrl.isEmpty();
         HashMap<String, Map<String, Object>> newAppSwaggers = new HashMap<>();
         // Add nodes
         newAppIdsAndUrl.forEach((key, value) -> {
@@ -115,7 +133,7 @@ public class RefreshScheduledTask {
                 pathsMap.forEach((pathKey, pathValue) -> {
                     Map<String, Object> methodMap = mapper.convertValue(pathValue, new TypeReference<Map<String, Object>>(){});
                     methodMap.forEach((methodKey, methodValue) -> {
-                        Endpoint endpoint = new Endpoint(methodKey, pathKey);
+                        Endpoint endpoint = new Endpoint(appIdInfo[1], methodKey, pathKey);
                         microservice.ownEndpoint(endpoint);
                     });
                 });
@@ -212,7 +230,7 @@ public class RefreshScheduledTask {
             if (targetServices != null && targetServices.size() > 0) {
                 // Found null target endpoints.
                 for (Microservice targetService: targetServices) {
-                    Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
+                    Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                     nullTargetEndpoint.ownBy(targetService);
                     nullEndpoints.add(nullTargetEndpoint);
                     logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
@@ -221,7 +239,7 @@ public class RefreshScheduledTask {
                 // Found null target service and endpoint.
                 Microservice nullTargetMicroservice = new NullMicroservice(
                         sourceAppId.split(":")[0], targetName, null);
-                Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
+                Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                 nullTargetEndpoint.ownBy(nullTargetMicroservice);
                 nullEndpoints.add(nullTargetEndpoint);
                 logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
@@ -236,19 +254,24 @@ public class RefreshScheduledTask {
             // Normal situation
             return targetEndpoint;
         } else {
-            Endpoint nullTargetEndpoint = new NullEndpoint(targetMethod, targetPath);
-            Microservice targetService = microserviceRepository.findByAppNameAndVersionInSameSys(
-                    sourceAppId, targetName, targetVersion
-            );
+            String targetAppId = sourceAppId.split(":")[0] + ":" + targetName + ":" + targetVersion;
+            String targetEndpointId = targetMethod + ":" + targetPath;
+            Microservice targetService = microserviceRepository.findByAppId(targetAppId);
+            Endpoint nullTargetEndpoint;
             if (targetService != null) {
                 // Found null target endpoint.
-                nullTargetEndpoint.ownBy(targetService);
+                nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(targetEndpointId, targetService.getAppId());
+                if (nullTargetEndpoint == null) {
+                    nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
+                    nullTargetEndpoint.ownBy(targetService);
+                }
                 logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
             } else {
                 // Found null target service and endpoint.
                 Microservice nullTargetMicroservice = new NullMicroservice(
                         sourceAppId.split(":")[0], targetName, targetVersion
                 );
+                nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                 nullTargetEndpoint.ownBy(nullTargetMicroservice);
                 logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
             }
@@ -263,15 +286,17 @@ public class RefreshScheduledTask {
             for (Map.Entry<String, String> entry: appIdsAndUrl.entrySet()) {
                 if (entry.getKey().equals(dbApp.getAppId())) {
                     isInRefreshList = true;
+                    break;
                 }
             }
             if (!isInRefreshList) {
                 microserviceRepository.deleteWithRelateByAppId(dbApp.getAppId());
+                graphUpdated = true;
                 logger.info("Remove microservice: " + dbApp.getAppId());
             }
         }
-        endpointRepository.deleteUnusefulNullEndpoint();
-        microserviceRepository.deleteUnusefulNullMicroservice();
+        endpointRepository.deleteUselessNullEndpoint();
+        microserviceRepository.deleteUselessNullMicroservice();
     }
 
 }
