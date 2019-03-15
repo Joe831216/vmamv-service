@@ -9,9 +9,9 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.soselab</groupId>
-    <artifactId>microservice-graph-platform</artifactId>
+    <artifactId>service-graph-platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>microservice-graph-platform</name>
+    <name>service-graph-platform</name>
     <description>A application that let users easily manage their microservices.</description>
 
     <properties>

@@ -5,9 +5,10 @@ import org.neo4j.ogm.annotation.Relationship;
 
 import javax.annotation.Nullable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
-public class Microservice {
+public class Service {
 
     @GraphId
     private Long id;
@@ -17,9 +18,9 @@ public class Microservice {
     private String appName;
     private String version;
 
-    public Microservice(){}
+    public Service(){}
 
-    public Microservice(@Nullable String scsName, String appName, @Nullable String version) {
+    public Service(@Nullable String scsName, String appName, @Nullable String version) {
         this.appId = scsName + ":" + appName + ":" + version;
         this.scsName = scsName;
         this.appName = appName;
@@ -77,6 +78,13 @@ public class Microservice {
             endpoints = new HashSet<>();
         }
         endpoints.add(endpoint);
+    }
+
+    public void ownEndpoint(List<Endpoint> endpoints) {
+        if (this.endpoints == null) {
+            this.endpoints = new HashSet<>();
+        }
+        this.endpoints.addAll(endpoints);
     }
 
     public Set<Endpoint> getOwnEndpoints() {

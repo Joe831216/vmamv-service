@@ -7,7 +7,7 @@ import com.soselab.microservicegraphplatform.bean.mgp.RegisterInfo;
 import com.soselab.microservicegraphplatform.bean.neo4j.ServiceRegistry;
 import com.soselab.microservicegraphplatform.repositories.EndpointRepository;
 import com.soselab.microservicegraphplatform.repositories.InstanceRepository;
-import com.soselab.microservicegraphplatform.repositories.MicroserviceRepository;
+import com.soselab.microservicegraphplatform.repositories.ServiceRepository;
 import com.soselab.microservicegraphplatform.repositories.ServiceRegistryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +30,7 @@ public class RegistryController {
     @Autowired
     InstanceRepository instanceRepository;
     @Autowired
-    MicroserviceRepository microserviceRepository;
+    ServiceRepository serviceRepository;
     @Autowired
     EndpointRepository endpointRepository;
 

@@ -59,14 +59,14 @@ public class Endpoint {
     }
 
     @Relationship(type = "OWN", direction = Relationship.INCOMING)
-    public Microservice microservice;
+    public Service service;
 
-    public void ownBy(Microservice microservice) {
-        this.microservice = microservice;
+    public void ownBy(Service service) {
+        this.service = service;
     }
 
-    public Microservice getOwner() {
-        return microservice;
+    public Service getOwner() {
+        return service;
     }
 
     @Relationship(type = "HTTP_REQUEST", direction = Relationship.OUTGOING)

@@ -32,7 +32,7 @@ public class RefreshScheduledTask {
     @Autowired
     private InstanceRepository instanceRepository;
     @Autowired
-    private MicroserviceRepository microserviceRepository;
+    private ServiceRepository serviceRepository;
     @Autowired
     private EndpointRepository endpointRepository;
 
@@ -70,10 +70,11 @@ public class RefreshScheduledTask {
                     try {
                         String url = "http://" + instance.getIpAddr() + ":" + instance.getPort() + "/eureka/apps/";
                         AppsList eurekaAppsList = restTemplate.getForObject(url, AppsList.class);
-                        HashMap<String, String> appIdsAndUrl = getAppIdsAndUrlFromEurekaAppList(scsName, eurekaAppsList);
-                        ArrayList<Microservice> microservicesInDB = microserviceRepository.findAllByServiceRegistryAppId(serviceRegistry.getAppId());
-                        addNewService(serviceRegistry, appIdsAndUrl, microservicesInDB);
-                        removeOldService(appIdsAndUrl, microservicesInDB);
+                        HashMap<String, String> eurekaAppIdsAndUrl = getAppIdsAndUrlFromEurekaAppList(scsName, eurekaAppsList);
+                        List<Service> ServicesInDB = serviceRepository.findByScsName(serviceRegistry.getScsName());
+                        List<NullService> nullServiceInDB = serviceRepository.findNullByScsName(serviceRegistry.getScsName());
+                        addNewService(serviceRegistry, eurekaAppIdsAndUrl, ServicesInDB, nullServiceInDB);
+                        removeOldService(eurekaAppIdsAndUrl, ServicesInDB);
                     } catch (ResourceAccessException e) {
                         logger.error(e.getMessage(), e);
                     }
@@ -100,57 +101,99 @@ public class RefreshScheduledTask {
     }
 
     // Add new apps to neo4j
-    private void addNewService(ServiceRegistry serviceRegistry, HashMap<String, String> appIdsAndUrl, ArrayList<Microservice> appsInDB) {
-        HashMap<String, String> newAppIdsAndUrl = new HashMap<>();
-        appIdsAndUrl.forEach((key, value) -> {
+    private void addNewService(ServiceRegistry serviceRegistry, HashMap<String, String> eurekaAppIdsAndUrl, List<Service> appsInDB, List<NullService> nullAppInDB) {
+        // Check the service should be created or replaced in graph DB.
+        Map<String, String> newAppIdsAndUrl = new HashMap<>();
+        Map<String, String> replaceIdsAndUrl = new HashMap<>();
+        eurekaAppIdsAndUrl.forEach((appId, url) -> {
             boolean isInDB = false;
-            for (Microservice dbApp : appsInDB) {
-                if (key.equals(dbApp.getAppId())) {
+            boolean isNull = false;
+            for (Service dbApp : appsInDB) {
+                if (appId.equals(dbApp.getAppId())) {
                     isInDB = true;
+                    break;
+                }
+            }
+            for (NullService nullDbApp: nullAppInDB) {
+                if (appId.equals(nullDbApp.getAppId())) {
+                    isNull = true;
+                    break;
                 }
             }
             if (!isInDB) {
-                newAppIdsAndUrl.put(key, value);
+                if (isNull) {
+                    replaceIdsAndUrl.put(appId, url);
+                } else {
+                    newAppIdsAndUrl.put(appId, url);
+                }
             }
         });
-        graphUpdated = !newAppIdsAndUrl.isEmpty();
-        HashMap<String, Map<String, Object>> newAppSwaggers = new HashMap<>();
-        // Add nodes
-        newAppIdsAndUrl.forEach((key, value) -> {
-            String swagger = restTemplate.getForObject(value + "/v2/api-docs", String.class);
-            Map<String, Object> swaggerMap = null;
-            try {
-                swaggerMap = mapper.readValue(swagger, new TypeReference<Map<String, Object>>(){});
-            } catch (IOException e) {
-                logger.error(e.getMessage(), e);
-            }
+        graphUpdated = !newAppIdsAndUrl.isEmpty() || !replaceIdsAndUrl.isEmpty();
+        Map<String, Map<String, Object>> appSwaggers = new HashMap<>();
+        // Add services to graph DB.
+        // CASE: Add services
+        newAppIdsAndUrl.forEach((appId, url) -> {
+            Map<String, Object> swaggerMap = getSwaggerMap(url);
             if (swaggerMap != null) {
-                newAppSwaggers.put(key, swaggerMap);
-                String[] appIdInfo = key.split(":");
-                Microservice microservice = new Microservice(appIdInfo[0], appIdInfo[1], appIdInfo[2]);
-                microservice.registerTo(serviceRegistry);
+                appSwaggers.put(appId, swaggerMap);
+                String[] appIdInfo = appId.split(":");
+                Service service = new Service(appIdInfo[0], appIdInfo[1], appIdInfo[2]);
+                service.registerTo(serviceRegistry);
                 Map<String, Object> pathsMap = mapper.convertValue(swaggerMap.get("paths"), new TypeReference<Map<String, Object>>(){});
                 pathsMap.forEach((pathKey, pathValue) -> {
                     Map<String, Object> methodMap = mapper.convertValue(pathValue, new TypeReference<Map<String, Object>>(){});
                     methodMap.forEach((methodKey, methodValue) -> {
                         Endpoint endpoint = new Endpoint(appIdInfo[1], methodKey, pathKey);
-                        microservice.ownEndpoint(endpoint);
+                        service.ownEndpoint(endpoint);
                     });
                 });
-                microserviceRepository.save(microservice);
-                logger.info("Add microservice: " + microservice.getAppId());
+                serviceRepository.save(service);
+                logger.info("Add service: " + service.getAppId());
             }
         });
-        // Add links
+        // CASE: Replace services
+        replaceIdsAndUrl.forEach((appId, url) -> {
+            Map<String, Object> swaggerMap = getSwaggerMap(url);
+            if (swaggerMap != null) {
+                appSwaggers.put(appId, swaggerMap);
+                serviceRepository.removeNullLabelByAppId(appId);
+                List<Endpoint> nullEndpoints = endpointRepository.findByAppId(appId);
+                List<Endpoint> newEndpoints = new ArrayList<>();
+                Map<String, Object> pathsMap = mapper.convertValue(swaggerMap.get("paths"), new TypeReference<Map<String, Object>>(){});
+                pathsMap.forEach((path, pathValue) -> {
+                    Map<String, Object> methodMap = mapper.convertValue(pathValue, new TypeReference<Map<String, Object>>(){});
+                    methodMap.forEach((method, methodValue) -> {
+                        boolean endpointReplaced = false;
+                        for (Endpoint nullEndpoint: nullEndpoints) {
+                            if (path.equals(nullEndpoint.getPath()) && method.equals(nullEndpoint.getMethod())) {
+                                endpointRepository.removeNullLabelByAppIdAAndEndpointId(appId, method + ":" + path);
+                                endpointReplaced = true;
+                                break;
+                            }
+                        }
+                        if (!endpointReplaced) {
+                            Endpoint endpoint = new Endpoint(appId.split(":")[1], method, path);
+                            newEndpoints.add(endpoint);
+                        }
+                    });
+                });
+                Service service = serviceRepository.findByAppId(appId);
+                service.ownEndpoint(newEndpoints);
+                serviceRepository.save(service);
+                logger.info("Replace service: " + service.getAppId());
+            }
+        });
+        newAppIdsAndUrl.putAll(replaceIdsAndUrl);
+        // Add dependency relationships to graph DB.
         newAppIdsAndUrl.forEach((sourceAppId, sourceAppUrl) -> {
-            Map<String, Object> swaggerMap = newAppSwaggers.get(sourceAppId);
+            Map<String, Object> swaggerMap = appSwaggers.get(sourceAppId);
             if (swaggerMap != null) {
                 Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
                 if (dependencyMap.get("httpRequest") != null) {
                     Map<String, Object> sourcePathMap = mapper.convertValue(dependencyMap.get("httpRequest"), new TypeReference<Map<String, Object>>(){});
                     sourcePathMap.forEach((sourcePathKey, sourcePathValue) -> {
                         if (sourcePathKey.equals("none")) {
-                            Microservice sourceService = microserviceRepository.findByAppId(sourceAppId);
+                            Service sourceService = serviceRepository.findByAppId(sourceAppId);
                             Object targets = mapper.convertValue(sourcePathValue, Map.class).get("targets");
                             addTargetEndpoints(sourceAppId, mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){}), sourceService);
                         } else {
@@ -168,12 +211,23 @@ public class RefreshScheduledTask {
         });
     }
 
-    private void addTargetEndpoints(String sourceAppId, Map<String, Object> targets, Microservice sourceService) {
+    private Map<String, Object> getSwaggerMap(String url) {
+        String swagger = restTemplate.getForObject(url + "/v2/api-docs", String.class);
+        Map<String, Object> swaggerMap = null;
+        try {
+            swaggerMap = mapper.readValue(swagger, new TypeReference<Map<String, Object>>(){});
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        }
+        return swaggerMap;
+    }
+
+    private void addTargetEndpoints(String sourceAppId, Map<String, Object> targets, Service sourceService) {
         Set<Endpoint> targetEndpoints = getTargetEndpoints(sourceAppId, targets);
         for (Endpoint targetEndpoint: targetEndpoints) {
             sourceService.httpRequestToEndpoint(targetEndpoint);
         }
-        microserviceRepository.save(sourceService);
+        serviceRepository.save(sourceService);
     }
 
     private void addTargetEndpoints(String sourceAppId, Map<String, Object> targets, Endpoint sourceEndpoint) {
@@ -225,11 +279,11 @@ public class RefreshScheduledTask {
             return targetEndpoints;
         } else {
             List<Endpoint> nullEndpoints = new ArrayList<>();
-            List<Microservice> targetServices = microserviceRepository.findByAppNameInSameSys(
+            List<Service> targetServices = serviceRepository.findByAppNameInSameSys(
                     sourceAppId, targetName);
             if (targetServices != null && targetServices.size() > 0) {
                 // Found null target endpoints.
-                for (Microservice targetService: targetServices) {
+                for (Service targetService: targetServices) {
                     Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                     nullTargetEndpoint.ownBy(targetService);
                     nullEndpoints.add(nullTargetEndpoint);
@@ -237,12 +291,12 @@ public class RefreshScheduledTask {
                 }
             } else {
                 // Found null target service and endpoint.
-                Microservice nullTargetMicroservice = new NullMicroservice(
+                Service nullTargetService = new NullService(
                         sourceAppId.split(":")[0], targetName, null);
                 Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
-                nullTargetEndpoint.ownBy(nullTargetMicroservice);
+                nullTargetEndpoint.ownBy(nullTargetService);
                 nullEndpoints.add(nullTargetEndpoint);
-                logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+                logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
             }
             return nullEndpoints;
         }
@@ -256,7 +310,7 @@ public class RefreshScheduledTask {
         } else {
             String targetAppId = sourceAppId.split(":")[0] + ":" + targetName + ":" + targetVersion;
             String targetEndpointId = targetMethod + ":" + targetPath;
-            Microservice targetService = microserviceRepository.findByAppId(targetAppId);
+            Service targetService = serviceRepository.findByAppId(targetAppId);
             Endpoint nullTargetEndpoint;
             if (targetService != null) {
                 // Found null target endpoint.
@@ -268,20 +322,20 @@ public class RefreshScheduledTask {
                 logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
             } else {
                 // Found null target service and endpoint.
-                Microservice nullTargetMicroservice = new NullMicroservice(
+                Service nullTargetService = new NullService(
                         sourceAppId.split(":")[0], targetName, targetVersion
                 );
                 nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
-                nullTargetEndpoint.ownBy(nullTargetMicroservice);
-                logger.info("Found null service and endpoint: " + nullTargetMicroservice.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+                nullTargetEndpoint.ownBy(nullTargetService);
+                logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
             }
             return nullTargetEndpoint;
         }
     }
 
     // Remove old apps that are not in refresh list
-    private void removeOldService(HashMap<String, String> appIdsAndUrl, ArrayList<Microservice> appsInDB) {
-        for (Microservice dbApp : appsInDB) {
+    private void removeOldService(HashMap<String, String> appIdsAndUrl, List<Service> appsInDB) {
+        for (Service dbApp : appsInDB) {
             boolean isInRefreshList = false;
             for (Map.Entry<String, String> entry: appIdsAndUrl.entrySet()) {
                 if (entry.getKey().equals(dbApp.getAppId())) {
@@ -290,13 +344,18 @@ public class RefreshScheduledTask {
                 }
             }
             if (!isInRefreshList) {
-                microserviceRepository.deleteWithRelateByAppId(dbApp.getAppId());
+                String appId = dbApp.getAppId();
+                if (serviceRepository.isBeDependentByAppId(appId)) {
+                    serviceRepository.addNullLabelWithEndpointsByAppId(appId);
+                } else {
+                    serviceRepository.deleteWithEndpointsByAppId(dbApp.getAppId());
+                }
                 graphUpdated = true;
-                logger.info("Remove microservice: " + dbApp.getAppId());
+                logger.info("Remove service: " + dbApp.getAppId());
             }
         }
         endpointRepository.deleteUselessNullEndpoint();
-        microserviceRepository.deleteUselessNullMicroservice();
+        serviceRepository.deleteUselessNullService();
     }
 
 }
