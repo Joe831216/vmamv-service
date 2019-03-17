@@ -51,10 +51,12 @@ function buildGraph(d) {
             .distance(170)
             .strength(1.5))
         .force("charge", d3.forceManyBody()
-            .strength(300))
-        .force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
-        .force("collision", d3.forceCollide().radius(85))
-        .alphaTarget(1)
+            .strength(10))
+        //.force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
+        .force("x", d3.forceX(graphWidth / 2))
+        .force("y", d3.forceY(graphHeight / 2))
+        .force("collision", d3.forceCollide().radius(85).strength(0.6))
+        //.alphaTarget(1)
         .on("tick", ticked);
 
     let color = d3.scaleOrdinal(d3.schemeSet2);
@@ -72,24 +74,104 @@ function buildGraph(d) {
     d3.interval(function () {
         d3.json("/web-page/graph", function(error, d) {
             if (error) throw error;
-            data = d;
+            let oldData = $.extend(true, {}, data);
+
+            // REMOVE old nodes
+            oldData.nodes.forEach(oldNode => {
+                let exist = false;
+                d.nodes.some(newNode => {
+                    if (oldNode.id === newNode.id) {
+                        exist = true;
+                        return true;
+                    }
+                });
+                if (!exist) {
+                    //console.log("Remove node: ");
+                    //console.log(oldNode);
+                    data.nodes.splice(data.nodes.findIndex(node => node.id === oldNode.id), 1);
+                }
+            });
+
+            // UPDATE old nodes
+            data.nodes.forEach((oldNode) => {
+                let newNode = d.nodes.find(node => node.id === oldNode.id);
+                //console.log(JSON.stringify(oldNode.labels.sort()) + "vs" + JSON.stringify(newNode.labels.sort()));
+                //console.log(!(JSON.stringify(oldNode.labels.sort()) === JSON.stringify(newNode.labels.sort())));
+                if (!(JSON.stringify(oldNode.labels.sort()) === JSON.stringify(newNode.labels.sort()))) {
+                    //console.log("Labels update: " + newNode.id);
+                    //console.log(newNode.labels);
+                    oldNode.labels = newNode.labels;
+                }
+            });
+
+            // ADD new nodes
+            d.nodes.forEach(newNode => {
+                let exist = false;
+                oldData.nodes.some(oldNode => {
+                    if (newNode.id === oldNode.id) {
+                        exist = true;
+                        return true;
+                    }
+                });
+                if (!exist) {
+                    //console.log("Add node: ");
+                    //console.log(newNode);
+                    data.nodes.push(newNode);
+                }
+            });
+
+            // REMOVE old links
+            oldData.links.forEach(oldLink => {
+               let exist = false;
+               d.links.some(newLink => {
+                  if (oldLink.type === newLink.type && oldLink.source.id === newLink.source && oldLink.target.id === newLink.target) {
+                      exist = true;
+                      return true;
+                  }
+               });
+               if (!exist) {
+                   //console.log("Remove link:");
+                   //console.log(oldLink);
+                   data.links.splice(data.links.findIndex(link => link.type === oldLink.type && link.source.id === oldLink.source.id && link.target.id === oldLink.target.id), 1);
+               }
+            });
+            // ADD new links
+            d.links.forEach(newLink => {
+                let exist = false;
+                oldData.links.some(oldLink => {
+                    if (oldLink.type === newLink.type && oldLink.source.id === newLink.source && oldLink.target.id === newLink.target) {
+                        exist = true;
+                        return true;
+                    }
+                });
+                if (!exist) {
+                    //console.log("Add link:");
+                    //console.log(newLink);
+                    data.links.push(newLink);
+                }
+            });
             update();
         });
     }, 5000);
 
     function update() {
+        console.log(data);
+        console.log("update");
+
+        let t = d3.transition().duration(600);
+        let td = d3.transition().duration(600).delay(500);
 
         // JOIN data and event listeners with old links
-        link = link.data(data.links, function(d) { return d.type + ":" + d.source + "-" + d.target; });
+        link = link.data(data.links, function(d) { return d.type + ":" + d.source.id + "-" + d.target.id; });
         //link = link.data(data.links);
 
         // EXIT old links
-        link.exit().remove();
+        link.exit().transition(t)
+            .attr("stroke-width", 0)
+            .remove();
 
         // UPDATE old links
-        link.attr("stroke-width", 3)
-            .attr("stroke-linecap", "round")
-            .attr("marker-end", d => {
+        link.attr("marker-end", d => {
                 if (d.type === REL_OWN) {
                     return null;
                 } else if (d.type === REL_HTTPREQUEST) {
@@ -99,7 +181,7 @@ function buildGraph(d) {
 
         // ENTER new links
         link = link.enter().append("line")
-            .attr("stroke-width", 3)
+            .attr("stroke-width", 0)
             .attr("stroke-linecap", "round")
             .attr("marker-end", d => {
                 if (d.type === REL_OWN) {
@@ -108,6 +190,7 @@ function buildGraph(d) {
                     return "url(#arrow-m)";
                 }
             })
+            .call(function(link) { link.transition(t).delay(500).attr("stroke-width", 3); })
             .merge(link);
 
         // JOIN data and event listeners with old nodes
@@ -115,27 +198,12 @@ function buildGraph(d) {
         //node = node.data(data.nodes);
 
         // EXIT old nodes
-        node.exit().remove();
+        node.exit().transition(t)
+            .attr("fill-opacity", 0)
+            .remove();
 
         // UPDATE old nodes
-        node.attr("d", d3.symbol()
-            .size(d => {
-                if(d.labels.includes(LABEL_SERVICE)) {
-                    d.radius = SIZE_SERVIVE / 100;
-                    return SIZE_SERVIVE;
-                } else if(d.labels.includes(LABEL_ENDPOINT)) {
-                    d.radius = SIZE_ENDPOINT / 100;
-                    return SIZE_ENDPOINT;
-                }
-            })
-            .type((d, i) => {
-                if (d.labels.includes(LABEL_SERVICE)) {
-                    return d3.symbolSquare;
-                } else if(d.labels.includes(LABEL_ENDPOINT)){
-                    return d3.symbolCircle;
-                }
-            })
-        )
+        node.transition(t)
             .attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
                     return "#3a3a3a";
@@ -149,10 +217,8 @@ function buildGraph(d) {
             .attr("d", d3.symbol()
                 .size(d => {
                     if(d.labels.includes(LABEL_SERVICE)) {
-                        d.radius = SIZE_SERVIVE / 100;
                         return SIZE_SERVIVE;
                     } else if(d.labels.includes(LABEL_ENDPOINT)) {
-                        d.radius = SIZE_ENDPOINT / 100;
                         return SIZE_ENDPOINT;
                     }
                 })
@@ -172,7 +238,8 @@ function buildGraph(d) {
                 }
             })
             .attr("stroke", "#fff")
-            .attr("stroke-width", "1.5px");
+            .attr("stroke-width", "1.5px")
+            .attr("fill-opacity", 0);
 
         nodeEnter.append("title")
             .text(d => {
@@ -182,6 +249,10 @@ function buildGraph(d) {
                     return d.endpointId;
                 }
             });
+
+        nodeEnter.transition(td)
+            .attr("fill-opacity", 1);
+
 
         node = nodeEnter.merge(node);
 
@@ -204,7 +275,7 @@ function buildGraph(d) {
         nodelabel.selectAll("text").remove();
 
         nodelabel.append("rect")
-            .attr("fill", "#ddd")
+            .attr("fill", "#dddddd")
             .attr("fill-opacity", 0.5)
             .attr("rx", 8)
             .attr("ry", 8);
@@ -218,6 +289,7 @@ function buildGraph(d) {
                     return 39;
                 }
             })
+            .attr("fill-opacity", 1)
             .text(d => {
                 if (d.labels.includes(LABEL_SERVICE)) {
                     return d.appName + ":" + d.version;
@@ -247,7 +319,7 @@ function buildGraph(d) {
 
         oldNullNodelabelGraph.append("rect")
             .attr("class", "null-label")
-            .attr("fill", "#ddd")
+            .attr("fill", "#dddddd")
             .attr("fill-opacity", 0.5)
             .attr("rx", 8)
             .attr("ry", 8);
@@ -264,6 +336,7 @@ function buildGraph(d) {
                     return 39 + position * 20;
                 }
             })
+            .attr("fill-opacity", 1)
             .style("fill", "#ce0000")
             .text("<<Null>>");
 
@@ -296,8 +369,8 @@ function buildGraph(d) {
         nodelabelEnter = nodelabel.enter().append("g");
 
         nodelabelEnter.append("rect")
-            .attr("fill", "#ddd")
-            .attr("fill-opacity", 0.5)
+            .attr("fill", "#dddddd")
+            .attr("fill-opacity", 0)
             .attr("rx", 8)
             .attr("ry", 8);
 
@@ -310,6 +383,7 @@ function buildGraph(d) {
                     return 39;
                 }
             })
+            .attr("fill-opacity", 0)
             .text(d => {
                 if (d.labels.includes(LABEL_SERVICE)) {
                     return d.appName + ":" + d.version;
@@ -339,8 +413,8 @@ function buildGraph(d) {
 
         nullNodelabelGraph.append("rect")
             .attr("class", "null-label")
-            .attr("fill", "#ddd")
-            .attr("fill-opacity", 0.5)
+            .attr("fill", "#dddddd")
+            .attr("fill-opacity", 0)
             .attr("rx", 8)
             .attr("ry", 8);
 
@@ -356,6 +430,7 @@ function buildGraph(d) {
                     return 39 + position * 20;
                 }
             })
+            .attr("fill-opacity", 0)
             .style("fill", "#ce0000")
             .text("<<Null>>");
 
@@ -384,11 +459,20 @@ function buildGraph(d) {
                 }
             });
 
+        nodelabelEnter.selectAll("rect")
+            .transition(td)
+            .attr("fill-opacity", 0.5);
+
+        nodelabelEnter.selectAll("text")
+            .transition(td)
+            .attr("fill-opacity", 1);
+
         nodelabel = nodelabelEnter.merge(nodelabel);
 
         simulation.nodes(data.nodes);
         simulation.force("link").links(data.links);
-        simulation.alpha(1).restart();
+        simulation.restart();
+        //simulation.alpha(1).restart();
 
     }
 
