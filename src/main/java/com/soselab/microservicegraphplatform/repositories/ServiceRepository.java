@@ -6,7 +6,6 @@ import org.springframework.data.neo4j.annotation.Query;
 import org.springframework.data.neo4j.repository.GraphRepository;
 import org.springframework.data.repository.query.Param;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public interface ServiceRepository extends GraphRepository<Service> {
@@ -37,10 +36,16 @@ public interface ServiceRepository extends GraphRepository<Service> {
     @Query("MATCH (s:NullService {appId:{appId}}) REMOVE s:NullService")
     void removeNullLabelByAppId(@Param("appId") String appId);
 
+    @Query("MATCH (s:NullService {appId:{appId}}) SET s.number = {num} REMOVE s:NullService")
+    void removeNullLabelAndSetNumByAppId(@Param("appId") String appId, @Param("num") int num);
+
     @Query("MATCH (m:Service {appId: {appId}}) " +
             "OPTIONAL MATCH (m)-[:OWN]->(e:Endpoint) " +
             "SET m:NullService, e:NullEndpoint")
     void addNullLabelWithEndpointsByAppId(@Param("appId") String appId);
+
+    @Query("MATCH (s:Service {appId: {appId}}) WITH s, s.number = {num} as result SET s.number = {num} RETURN result")
+    boolean setNumberByAppId(@Param("appId") String appId, @Param("num") int number);
 
     @Query("MATCH (:Service{appId:{appId}})-[:OWN]->(:Endpoint)<-[:HTTP_REQUEST]-(n) RETURN count(n)>0 AS result")
     boolean isBeDependentByAppId(@Param("appId") String appId);

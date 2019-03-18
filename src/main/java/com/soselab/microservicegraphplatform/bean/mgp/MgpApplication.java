@@ -1,8 +1,9 @@
 package com.soselab.microservicegraphplatform.bean.mgp;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 
-public class Application {
+public class MgpApplication {
 
     private String appId;
     private String scsName;
@@ -10,10 +11,10 @@ public class Application {
     private String version;
     private ArrayList<MgpInstance> instances;
 
-    public Application() {
+    public MgpApplication() {
     }
 
-    public Application(String scsName, String appName, String version, ArrayList<MgpInstance> instances) {
+    public MgpApplication(String scsName, String appName, String version, @Nullable ArrayList<MgpInstance> instances) {
         this.appId = scsName + ":" + appName + ":" + version;
         this.scsName = scsName;
         this.appName = appName;
@@ -59,6 +60,13 @@ public class Application {
 
     public void setInstances(ArrayList<MgpInstance> instances) {
         this.instances = instances;
+    }
+
+    public void addInstance(MgpInstance instance) {
+        if (this.instances == null) {
+            this.instances = new ArrayList<>();
+        }
+        this.instances.add(instance);
     }
 
 }

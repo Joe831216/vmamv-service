@@ -56,7 +56,7 @@ function buildGraph(d) {
         .force("x", d3.forceX(graphWidth / 2))
         .force("y", d3.forceY(graphHeight / 2))
         .force("collision", d3.forceCollide().radius(85).strength(0.6))
-        //.alphaTarget(1)
+        .alphaTarget(1)
         .on("tick", ticked);
 
     let color = d3.scaleOrdinal(d3.schemeSet2);
@@ -155,7 +155,7 @@ function buildGraph(d) {
     }, 5000);
 
     function update() {
-        console.log(data);
+        //console.log(data);
         console.log("update");
 
         let t = d3.transition().duration(600);
@@ -471,8 +471,8 @@ function buildGraph(d) {
 
         simulation.nodes(data.nodes);
         simulation.force("link").links(data.links);
-        simulation.restart();
-        //simulation.alpha(1).restart();
+        //simulation.restart();
+        simulation.alpha(1).restart();
 
     }
 

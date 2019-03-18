@@ -4,21 +4,21 @@ import java.util.ArrayList;
 
 public class RegisterInfo {
 
-    private ArrayList<Application> applications;
+    private ArrayList<MgpApplication> mgpApplications;
 
     public RegisterInfo() {
     }
 
-    public RegisterInfo(ArrayList<Application> applications) {
-        this.applications = applications;
+    public RegisterInfo(ArrayList<MgpApplication> mgpApplications) {
+        this.mgpApplications = mgpApplications;
     }
 
-    public ArrayList<Application> getApplications() {
-        return applications;
+    public ArrayList<MgpApplication> getMgpApplications() {
+        return mgpApplications;
     }
 
-    public void setApplications(ArrayList<Application> applications) {
-        this.applications = applications;
+    public void setMgpApplications(ArrayList<MgpApplication> mgpApplications) {
+        this.mgpApplications = mgpApplications;
     }
 
 }

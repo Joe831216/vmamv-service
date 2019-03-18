@@ -58,6 +58,10 @@ public class Endpoint {
         this.path = path;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     @Relationship(type = "OWN", direction = Relationship.INCOMING)
     public Service service;
 

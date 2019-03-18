@@ -1,6 +1,6 @@
 package com.soselab.microservicegraphplatform.controllers;
 
-import com.soselab.microservicegraphplatform.bean.mgp.Application;
+import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
 import com.soselab.microservicegraphplatform.bean.neo4j.Instance;
 import com.soselab.microservicegraphplatform.bean.mgp.RegisterInfo;
@@ -45,7 +45,7 @@ public class RegistryController {
             logger.info("getRemoteHost: " + request.getRemoteHost());
             logger.info("getRemoteAddr: " + request.getRemoteAddr());
             logger.info("getRemotePort: " + request.getRemotePort());
-            for (Application app : registerInfo.getApplications()) {
+            for (MgpApplication app : registerInfo.getMgpApplications()) {
                 // If this app (service tasks) is not in neo4j then save to neo4j DB
                 String appId = app.getAppId();
                 if (serviceRegistryRepository.findByAppId(appId) == null) {

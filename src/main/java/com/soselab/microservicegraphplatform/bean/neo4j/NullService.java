@@ -7,8 +7,8 @@ public class NullService extends Service {
     public NullService() {
     }
 
-    public NullService(String scsName, String appName, @Nullable String version) {
-        super(scsName, appName, version);
+    public NullService(@Nullable String scsName, String appName, @Nullable String version, int number) {
+        super(scsName, appName, version, number);
     }
 
 }

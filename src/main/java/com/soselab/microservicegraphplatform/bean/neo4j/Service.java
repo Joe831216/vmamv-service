@@ -17,14 +17,16 @@ public class Service {
     private String scsName;
     private String appName;
     private String version;
+    private int number;
 
     public Service(){}
 
-    public Service(@Nullable String scsName, String appName, @Nullable String version) {
+    public Service(@Nullable String scsName, String appName, @Nullable String version, int number) {
         this.appId = scsName + ":" + appName + ":" + version;
         this.scsName = scsName;
         this.appName = appName;
         this.version = version;
+        this.number = number;
     }
 
     public Long getId() {
@@ -61,6 +63,14 @@ public class Service {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    public int getNumber() {
+        return number;
+    }
+
+    public void setNumber(int number) {
+        this.number = number;
     }
 
     @Relationship(type = "REGISTER", direction = Relationship.OUTGOING)
