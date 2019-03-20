@@ -86,11 +86,11 @@ public class RefreshScheduledTask {
                         // Find new apps and recover apps, then remove from eurekaAppsInfoAndNum.
                         for (Iterator<Map.Entry<String, Pair<MgpApplication, Integer>>> it = eurekaAppsInfoAndNum.entrySet().iterator(); it.hasNext();) {
                             Map.Entry<String, Pair<MgpApplication, Integer>> entry = it.next();
-                            boolean isInDB = false;
+                            boolean isUpInDB = false;
                             boolean isNull = false;
                             for (Service dbApp : ServicesInDB) {
                                 if (entry.getKey().equals(dbApp.getAppId())) {
-                                    isInDB = true;
+                                    isUpInDB = true;
                                     break;
                                 }
                             }
@@ -100,7 +100,7 @@ public class RefreshScheduledTask {
                                     break;
                                 }
                             }
-                            if (!isInDB) {
+                            if (!isUpInDB) {
                                 if (isNull) {
                                     recoveryAppsMap.put(entry.getKey(), entry.getValue());
                                 } else {
@@ -253,47 +253,62 @@ public class RefreshScheduledTask {
     // List<Pair<App info, Swagger>> Apps
     private List<Pair<MgpApplication, Map<String, Object>>> dependencyDetector(ServiceRegistry serviceRegistry, MgpApplication mgpApplication) {
         List<Pair<MgpApplication, Map<String, Object>>> updateDependencyApps = new ArrayList<>();
-        Service otherVerApp = serviceRepository.findOtherVerInSameSysByScsNameAndAppNameAndVersion
-                (mgpApplication.getScsName(), mgpApplication.getAppName(), mgpApplication.getVersion());
-        if (otherVerApp != null) {
-            List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(otherVerApp.getAppId());
-            if (dependentApps != null) {
-                for (Service dependentApp : dependentApps) {
-                    MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
-                    String ipAddr = appInfo.getInstances().get(0).getIpAddr();
-                    int port = appInfo.getInstances().get(0).getPort();
-                    String serviceUrl = "http://" + ipAddr + ":" + port;
-                    Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
-                    if (swaggerMap != null) {
-                        Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
-                        if (dependencyMap.get("httpRequest") != null) {
-                            Map<String, Object> sourcePathMap = mapper.convertValue(dependencyMap.get("httpRequest"), new TypeReference<Map<String, Object>>(){});
-                            sourcePathMap.forEach((sourcePathKey, sourcePathValue) -> {
-                                Map<String, Object> targetsMap = new HashMap<>();
-                                if (sourcePathKey.equals("none")) {
-                                    Object targets = mapper.convertValue(sourcePathValue, Map.class).get("targets");
-                                    targetsMap = mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){});
-                                } else {
-                                    Map<String, Object> sourceMethodMap = mapper.convertValue(sourcePathValue, new TypeReference<Map<String, Object>>(){});
-                                    for (Map.Entry<String, Object> methodEntry : sourceMethodMap.entrySet()) {
-                                        Object targets = mapper.convertValue(methodEntry.getValue(), Map.class).get("targets");
+        Service noVerNullApp = serviceRepository.findNullByAppId(mgpApplication.getScsName() + ":" + mgpApplication.getAppName() + ":null");
+        if (noVerNullApp != null) {
+            List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(noVerNullApp.getAppId());
+            for (Service dependentApp : dependentApps) {
+                MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
+                String ipAddr = appInfo.getInstances().get(0).getIpAddr();
+                int port = appInfo.getInstances().get(0).getPort();
+                String serviceUrl = "http://" + ipAddr + ":" + port;
+                Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+                updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
+            }
+        } else {
+            Service otherVerApp = serviceRepository.findOtherVerInSameSysByScsNameAndAppNameAndVersion
+                    (mgpApplication.getScsName(), mgpApplication.getAppName(), mgpApplication.getVersion());
+            if (otherVerApp != null) {
+                List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(otherVerApp.getAppId());
+                if (dependentApps != null) {
+                    for (Service dependentApp : dependentApps) {
+                        MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
+                        String ipAddr = appInfo.getInstances().get(0).getIpAddr();
+                        int port = appInfo.getInstances().get(0).getPort();
+                        String serviceUrl = "http://" + ipAddr + ":" + port;
+                        Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+                        if (swaggerMap != null) {
+                            Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
+                            if (dependencyMap.get("httpRequest") != null) {
+                                Map<String, Object> sourcePathMap = mapper.convertValue(dependencyMap.get("httpRequest"), new TypeReference<Map<String, Object>>(){});
+                                sourcePathMap.forEach((sourcePathKey, sourcePathValue) -> {
+                                    Map<String, Object> targetsMap = new HashMap<>();
+                                    if (sourcePathKey.equals("none")) {
+                                        Object targets = mapper.convertValue(sourcePathValue, Map.class).get("targets");
                                         targetsMap = mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){});
+                                    } else {
+                                        Map<String, Object> sourceMethodMap = mapper.convertValue(sourcePathValue, new TypeReference<Map<String, Object>>(){});
+                                        for (Map.Entry<String, Object> methodEntry : sourceMethodMap.entrySet()) {
+                                            Object targets = mapper.convertValue(methodEntry.getValue(), Map.class).get("targets");
+                                            targetsMap = mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){});
+                                        }
                                     }
-                                }
-                                if (isTargetsExistnotSpecifiedCalltoApp(mgpApplication.getAppName(), targetsMap)) {
-                                    updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
-                                }
-                            });
+                                    if (isTargetsExistNotSpecifiedCalltoApp(mgpApplication.getAppName(), targetsMap)) {
+                                        updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
+                                    }
+                                });
+                            }
                         }
                     }
                 }
             }
         }
 
+
+
         return updateDependencyApps;
     }
 
-    private boolean isTargetsExistnotSpecifiedCalltoApp(String targetAppName, Map<String, Object> targets) {
+    private boolean isTargetsExistNotSpecifiedCalltoApp(String targetAppName, Map<String, Object> targets) {
         boolean result = false;
         // key = targetName
         for (Map.Entry<String, Object> targetEntry : targets.entrySet()) {
@@ -337,7 +352,11 @@ public class RefreshScheduledTask {
             Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
-                serviceRepository.removeNullLabelAndSetNumByAppId(appId, appInfoAndNum.getValue());
+                //String noVerAppId = appInfoAndNum.getKey().getScsName() + ":" + appInfoAndNum.getKey().getAppName() + ":null";
+                //if (!serviceRepository.removeNullLabelAndSetVerAndNumByAppId(noVerAppId, appInfoAndNum.getKey().getAppId(),
+                //        appInfoAndNum.getKey().getVersion(), appInfoAndNum.getValue())) {
+                    serviceRepository.removeNullLabelAndSetNumByAppId(appId, appInfoAndNum.getValue());
+                //}
                 List<Endpoint> nullEndpoints = endpointRepository.findByAppId(appId);
                 List<Endpoint> newEndpoints = new ArrayList<>();
                 Map<String, Object> pathsMap = mapper.convertValue(swaggerMap.get("paths"), new TypeReference<Map<String, Object>>(){});

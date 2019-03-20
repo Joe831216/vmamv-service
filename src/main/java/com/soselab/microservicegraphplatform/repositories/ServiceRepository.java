@@ -57,6 +57,13 @@ public interface ServiceRepository extends GraphRepository<Service> {
     @Query("MATCH (s:NullService {appId:{appId}}) SET s.number = {num} REMOVE s:NullService")
     void removeNullLabelAndSetNumByAppId(@Param("appId") String appId, @Param("num") int num);
 
+    @Query("MATCH (s:NullService {appId: {noVerAppId}}) " +
+            "SET s.appId = {appId}, s.version = {ver}, s.number = {num}" +
+            "REMOVE s:NullService" +
+            "RETURN count(s)>0 as result ")
+    boolean removeNullLabelAndSetVerAndNumByAppId(@Param("noVerAppId") String noVerAppId, @Param("appId") String appId,
+                                                  @Param("ver") String version, @Param("num") int num);
+
     @Query("MATCH (m:Service {appId: {appId}}) " +
             "OPTIONAL MATCH (m)-[:OWN]->(e:Endpoint) " +
             "SET m:NullService, m.number = 0, e:NullEndpoint")
