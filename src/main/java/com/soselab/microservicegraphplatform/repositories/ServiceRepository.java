@@ -12,6 +12,15 @@ public interface ServiceRepository extends GraphRepository<Service> {
 
     Service findByAppId(String appId);
 
+    @Query("MATCH (s:Service {scsName:{scsName}, appName:{appName}}) WHERE NOT s.version = {ver} RETURN s")
+    Service findOtherVerInSameSysByScsNameAndAppNameAndVersion(@Param("scsName") String scsName, @Param("appName") String appName, @Param("ver") String version);
+
+    @Query("MATCH (s:Service {appId:{appId}})-[:OWN]->(e:Endpoint) " +
+            "OPTIONAL MATCH (e)<-[:HTTP_REQUEST]-(:Endpoint)<-[:OWN]-(o1:Service) " +
+            "OPTIONAL MATCH (e)<-[:HTTP_REQUEST]-(o2:Service) " +
+            "RETURN o1, o2")
+    List<Service> findDependentOnThisAppByAppId(@Param("appId") String sourceAppId);
+
     @Query("MATCH (sm:Service)-[:REGISTER]->(:ServiceRegistry)<-[:REGISTER]-(tm:Service) " +
             "WHERE sm.appId = {smAppId} AND tm.appName = {tmAppName} RETURN tm")
     List<Service> findByAppNameInSameSys(@Param("smAppId") String sourceAppId, @Param("tmAppName") String targetAppName);
@@ -21,6 +30,9 @@ public interface ServiceRepository extends GraphRepository<Service> {
 
     @Query("MATCH (n:NullService {scsName:{scsName}}) RETURN n")
     List<NullService> findNullByScsName(@Param("scsName") String scsName);
+
+    @Query("MATCH (n:NullService {appId:{appId}}) RETURN n")
+    Service findNullByAppId(@Param("appId") String appId);
 
     @Query("MATCH (m:Service) WHERE m.appId = {appId} DETACH DELETE m")
     void deleteByAppId(@Param("appId") String appId);
@@ -33,6 +45,12 @@ public interface ServiceRepository extends GraphRepository<Service> {
     @Query("MATCH (nm:NullService) WHERE NOT (nm)-[:OWN]->() DETACH DELETE nm")
     void deleteUselessNullService();
 
+    @Query("MATCH (s:Service {appId:{appId}}) " +
+            "OPTIONAL MATCH (s)-[r1:HTTP_REQUEST]->() " +
+            "OPTIONAL MATCH (s)-[:OWN]->(:Endpoint)-[r2:HTTP_REQUEST]->() " +
+            "DELETE r1, r2")
+    void deleteDependencyByAppId(@Param("appId") String appId);
+
     @Query("MATCH (s:NullService {appId:{appId}}) REMOVE s:NullService")
     void removeNullLabelByAppId(@Param("appId") String appId);
 
@@ -41,8 +59,8 @@ public interface ServiceRepository extends GraphRepository<Service> {
 
     @Query("MATCH (m:Service {appId: {appId}}) " +
             "OPTIONAL MATCH (m)-[:OWN]->(e:Endpoint) " +
-            "SET m:NullService, e:NullEndpoint")
-    void addNullLabelWithEndpointsByAppId(@Param("appId") String appId);
+            "SET m:NullService, m.number = 0, e:NullEndpoint")
+    void setNumToZeroAndAddNullLabelWithEndpointsByAppId(@Param("appId") String appId);
 
     @Query("MATCH (s:Service {appId: {appId}}) WITH s, s.number = {num} as result SET s.number = {num} RETURN result")
     boolean setNumberByAppId(@Param("appId") String appId, @Param("num") int number);

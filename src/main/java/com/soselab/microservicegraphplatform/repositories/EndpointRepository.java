@@ -1,6 +1,7 @@
 package com.soselab.microservicegraphplatform.repositories;
 
 import com.soselab.microservicegraphplatform.bean.neo4j.Endpoint;
+import com.soselab.microservicegraphplatform.bean.neo4j.NullEndpoint;
 import org.springframework.data.neo4j.annotation.Query;
 import org.springframework.data.neo4j.repository.GraphRepository;
 import org.springframework.data.repository.query.Param;
@@ -15,13 +16,17 @@ public interface EndpointRepository extends GraphRepository<Endpoint> {
     Endpoint findByEndpointIdAndAppId(@Param("endpointId") String endpointId, @Param("appId") String appId);
 
     @Query("MATCH (e:NullEndpoint)<-[:OWN]-(m:Service) WHERE m.appId = {appId} AND e.endpointId = {endpointId} RETURN e")
-    Endpoint findByNullEndpointAndAppId(@Param("endpointId") String endpointId, @Param("appId") String appId);
+    NullEndpoint findByNullEndpointAndAppId(@Param("endpointId") String endpointId, @Param("appId") String appId);
 
     @Query("MATCH (sm:Service)-[:REGISTER]->(:ServiceRegistry)<-[:REGISTER]-(tm:Service)-[:OWN]->(te:Endpoint) " +
             "WHERE sm.appId = {smId} AND tm.appName = {tmName} AND tm.version = {tmVer} AND te.endpointId = {teId} RETURN te")
     Endpoint findTargetEndpoint(@Param("smId") String sourceAppId, @Param("tmName") String targetAppName,
                                 @Param("tmVer") String targetVersion, @Param("teId") String targetEndpointId);
 
+    /*
+    @Query("MATCH (tm:Service {appId:{tmAppId}})-[:OWN]->(te:Endpoint {endpointId}:{teId}) RETURN te")
+    Endpoint findTargetEndpoint(@Param("tmId") String targetAppId, @Param("teId") String targetEndpointId);
+*/
     @Query("MATCH (:Service {appId:{appId}})-[:OWN]->(e:Endpoint) RETURN e")
     List<Endpoint> findByAppId(@Param("appId") String appId);
 

@@ -81,35 +81,8 @@ public class RegistryController {
     public String unregisterServiceRegistry(@PathVariable("instanceId") String id) {
         instanceRepository.deleteByInstanceId(id);
         logger.info("Unregister: " + id);
-        /*
-        if (instanceRepository.findByInstanceId(id) != null) {
 
-        }
-        */
         return "success";
     }
-
-    /*
-    @RequestMapping("/refreshAppList/{serviceRegistryAppId:.+}")
-    public void refreshAppListrest(@PathVariable("serviceRegistryAppId") String serviceRegistryAppId) {
-        ArrayList<Instance> instances = instanceRepository.findByServiceRegistryAppId(serviceRegistryAppId);
-        Instance instance = instances.get(0);
-        String url = "http://" + instance.getIpAddr() + ":" + instance.getPort() + "/eureka/apps/";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-        logger.info("Refresh " + serviceRegistryAppId + "app list: " + responseEntity.getBody());
-    }
-    */
-
-    /*
-    @PostMapping("/register/swagger/{appId:.+}")
-    public String registerSwagger(@PathVariable("appId") String appId, @RequestBody String swagger) {
-        logger.info(appId + " register swagger: " + swagger);
-        return "success";
-    }
-    */
 
 }

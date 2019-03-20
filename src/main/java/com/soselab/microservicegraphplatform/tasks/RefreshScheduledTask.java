@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.bean.actuators.Info;
 import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
+import com.soselab.microservicegraphplatform.bean.eureka.AppList;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
 import com.soselab.microservicegraphplatform.bean.neo4j.*;
@@ -127,8 +128,10 @@ public class RefreshScheduledTask {
                         // Update the dependency graph.
                         Map<String, Map<String, Object>> appSwaggers = addServices(serviceRegistry, newAppsMap);
                         appSwaggers.putAll(recoverServices(serviceRegistry, recoveryAppsMap));
+
                         newAppsMap.putAll(recoveryAppsMap);
                         addDependency(newAppsMap, appSwaggers);
+
                         boolean appsUpdated = updateServices(updateAppsMap);
                         removeServices(removeAppsSet);
 
@@ -177,9 +180,43 @@ public class RefreshScheduledTask {
         return appInfoAndNum;
     }
 
+    private MgpApplication getAppFromEureka(ServiceRegistry serviceRegistry, String appName, String version) {
+        List<Instance> registryInstance = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
+        String registryUrl = "http://" + registryInstance.get(0).getIpAddr() + ":" + registryInstance.get(0).getPort() + "/eureka/apps/" + appName;
+        AppList eurekaApp = restTemplate.getForObject
+                (registryUrl, AppList.class);
+        MgpApplication mgpApplication = null;
+        for (AppInstance instance: eurekaApp.getApplication().getInstance()) {
+            if (instance.getStatus().equals("UP")) {
+                String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
+                String ver = restTemplate.getForObject( url + "/info", Info.class).getVersion();
+                if (ver.equals(version)) {
+                    MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
+                    mgpApplication = new MgpApplication(serviceRegistry.getScsName(), appName, version, new ArrayList<>());
+                    mgpApplication.addInstance(mgpInstance);
+                }
+            }
+        }
+
+        return mgpApplication;
+    }
+
+    private Map<String, Object> getSwaggerMap(String serviceUrl) {
+        String swagger = restTemplate.getForObject(serviceUrl + "/v2/api-docs", String.class);
+        Map<String, Object> swaggerMap = null;
+        try {
+            swaggerMap = mapper.readValue(swagger, new TypeReference<Map<String, Object>>(){});
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        }
+        return swaggerMap;
+    }
+
     // Add new apps to neo4j
     private Map<String, Map<String, Object>> addServices(ServiceRegistry serviceRegistry, Map<String, Pair<MgpApplication, Integer>> newAppsMap) {
         Map<String, Map<String, Object>> appSwaggers = new HashMap<>();
+        Map<String, Pair<MgpApplication, Integer>> updateDependencyAppsMap = new HashMap<>();
+        Map<String, Map<String, Object>> updateDependencyAppsSwagger = new HashMap<>();
         // Add services to graph DB.
         newAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
@@ -201,9 +238,92 @@ public class RefreshScheduledTask {
                 serviceRepository.save(service);
                 logger.info("Add service: " + service.getAppId());
             }
+            List<Pair<MgpApplication, Map<String, Object>>> dependencyDetectResult = dependencyDetector(serviceRegistry, appInfoAndNum.getKey());
+            for (Pair<MgpApplication, Map<String, Object>> app : dependencyDetectResult) {
+                updateDependencyAppsMap.put(app.getKey().getAppId(), new MutablePair<>(app.getKey(), null));
+                updateDependencyAppsSwagger.put(app.getKey().getAppId(), app.getValue());
+            }
+            updateDependency(updateDependencyAppsMap, updateDependencyAppsSwagger);
         });
 
         return appSwaggers;
+    }
+
+    // Find services that is caused by an input service and needs to update dependencies.
+    // List<Pair<App info, Swagger>> Apps
+    private List<Pair<MgpApplication, Map<String, Object>>> dependencyDetector(ServiceRegistry serviceRegistry, MgpApplication mgpApplication) {
+        List<Pair<MgpApplication, Map<String, Object>>> updateDependencyApps = new ArrayList<>();
+        Service otherVerApp = serviceRepository.findOtherVerInSameSysByScsNameAndAppNameAndVersion
+                (mgpApplication.getScsName(), mgpApplication.getAppName(), mgpApplication.getVersion());
+        if (otherVerApp != null) {
+            List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(otherVerApp.getAppId());
+            if (dependentApps != null) {
+                for (Service dependentApp : dependentApps) {
+                    MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
+                    String ipAddr = appInfo.getInstances().get(0).getIpAddr();
+                    int port = appInfo.getInstances().get(0).getPort();
+                    String serviceUrl = "http://" + ipAddr + ":" + port;
+                    Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+                    if (swaggerMap != null) {
+                        Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
+                        if (dependencyMap.get("httpRequest") != null) {
+                            Map<String, Object> sourcePathMap = mapper.convertValue(dependencyMap.get("httpRequest"), new TypeReference<Map<String, Object>>(){});
+                            sourcePathMap.forEach((sourcePathKey, sourcePathValue) -> {
+                                Map<String, Object> targetsMap = new HashMap<>();
+                                if (sourcePathKey.equals("none")) {
+                                    Object targets = mapper.convertValue(sourcePathValue, Map.class).get("targets");
+                                    targetsMap = mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){});
+                                } else {
+                                    Map<String, Object> sourceMethodMap = mapper.convertValue(sourcePathValue, new TypeReference<Map<String, Object>>(){});
+                                    for (Map.Entry<String, Object> methodEntry : sourceMethodMap.entrySet()) {
+                                        Object targets = mapper.convertValue(methodEntry.getValue(), Map.class).get("targets");
+                                        targetsMap = mapper.convertValue(targets, new TypeReference<Map<String, Object>>(){});
+                                    }
+                                }
+                                if (isTargetsExistnotSpecifiedCalltoApp(mgpApplication.getAppName(), targetsMap)) {
+                                    updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        return updateDependencyApps;
+    }
+
+    private boolean isTargetsExistnotSpecifiedCalltoApp(String targetAppName, Map<String, Object> targets) {
+        boolean result = false;
+        // key = targetName
+        for (Map.Entry<String, Object> targetEntry : targets.entrySet()) {
+            if (targetEntry.getKey().toUpperCase().equals(targetAppName)) {
+                Map<String, Object> targetVersionMap =
+                        mapper.convertValue(targetEntry.getValue(), new TypeReference<Map<String, Object>>(){});
+                // key = version
+                for (Map.Entry<String, Object> versionEntry : targetVersionMap.entrySet()) {
+                    if (versionEntry.getKey().equals("notSpecified")) {
+                        result = true;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    // Add dependency relationships to neo4j
+    private void updateDependency(Map<String, Pair<MgpApplication, Integer>> appsMap, Map<String, Map<String, Object>> appSwaggers) {
+        appsMap.forEach((appId, appInfo) -> {
+            serviceRepository.deleteDependencyByAppId(appInfo.getKey().getAppId());
+        });
+        if (appsMap.size() > 0) {
+            endpointRepository.deleteUselessNullEndpoint();
+            serviceRepository.deleteUselessNullService();
+        }
+        addDependency(appsMap, appSwaggers);
     }
 
     // Recover apps in neo4j
@@ -249,20 +369,9 @@ public class RefreshScheduledTask {
         return appSwaggers;
     }
 
-    private Map<String, Object> getSwaggerMap(String serviceUrl) {
-        String swagger = restTemplate.getForObject(serviceUrl + "/v2/api-docs", String.class);
-        Map<String, Object> swaggerMap = null;
-        try {
-            swaggerMap = mapper.readValue(swagger, new TypeReference<Map<String, Object>>(){});
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-        return swaggerMap;
-    }
-
     // Add dependency relationships to neo4j
-    private void addDependency(Map<String, Pair<MgpApplication, Integer>> newAndRecoveryAppsMap, Map<String, Map<String, Object>> appSwaggers) {
-        newAndRecoveryAppsMap.forEach((sourceAppId, sourceAppInfo) -> {
+    private void addDependency(Map<String, Pair<MgpApplication, Integer>> appsMap, Map<String, Map<String, Object>> appSwaggers) {
+        appsMap.forEach((sourceAppId, sourceAppInfo) -> {
             Map<String, Object> swaggerMap = appSwaggers.get(sourceAppId);
             if (swaggerMap != null) {
                 Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
@@ -350,19 +459,40 @@ public class RefreshScheduledTask {
             if (targetServices != null && targetServices.size() > 0) {
                 // Found null target endpoints.
                 for (Service targetService: targetServices) {
-                    Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
-                    nullTargetEndpoint.ownBy(targetService);
+                    //Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
+                    Endpoint nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(targetMethod + ":" + targetPath, targetService.getAppId());
+                    if (nullTargetEndpoint == null) {
+                        nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
+                        nullTargetEndpoint.ownBy(targetService);
+                        endpointRepository.save(nullTargetEndpoint);
+                        nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(nullTargetEndpoint.getEndpointId(), targetService.getAppId());
+                    }
                     nullEndpoints.add(nullTargetEndpoint);
                     logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
                 }
             } else {
                 // Found null target service and endpoint.
-                Service nullTargetService = new NullService(
-                        sourceAppId.split(":")[0], targetName, null, 0);
-                Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
-                nullTargetEndpoint.ownBy(nullTargetService);
-                nullEndpoints.add(nullTargetEndpoint);
-                logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+                Service nullTargetService = serviceRepository.findNullByAppId(sourceAppId.split(":")[0] + ":" + targetName + ":" + null);
+                if (nullTargetService == null) {
+                    nullTargetService = new NullService(
+                            sourceAppId.split(":")[0], targetName, null, 0);
+                    Endpoint nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
+                    nullTargetEndpoint.ownBy(nullTargetService);
+                    endpointRepository.save(nullTargetEndpoint);
+                    nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(nullTargetEndpoint.getEndpointId(), nullTargetService.getAppId());
+                    nullEndpoints.add(nullTargetEndpoint);
+                    logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+                } else {
+                    Endpoint nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(targetMethod + ":" + targetPath, nullTargetService.getAppId());
+                    if (nullTargetEndpoint == null) {
+                        nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
+                        nullTargetEndpoint.ownBy(nullTargetService);
+                        endpointRepository.save(nullTargetEndpoint);
+                        nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(nullTargetEndpoint.getEndpointId(), nullTargetService.getAppId());
+                    }
+                    nullEndpoints.add(nullTargetEndpoint);
+                    logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
+                }
             }
             return nullEndpoints;
         }
@@ -384,6 +514,8 @@ public class RefreshScheduledTask {
                 if (nullTargetEndpoint == null) {
                     nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                     nullTargetEndpoint.ownBy(targetService);
+                    endpointRepository.save(nullTargetEndpoint);
+                    nullTargetEndpoint = endpointRepository.findByNullEndpointAndAppId(targetEndpointId, targetService.getAppId());
                 }
                 logger.info("Found null endpoint: " + nullTargetEndpoint.getEndpointId());
             } else {
@@ -393,11 +525,13 @@ public class RefreshScheduledTask {
                 );
                 nullTargetEndpoint = new NullEndpoint(targetName, targetMethod, targetPath);
                 nullTargetEndpoint.ownBy(nullTargetService);
+                endpointRepository.save(nullTargetEndpoint);
                 logger.info("Found null service and endpoint: " + nullTargetService.getAppId() + " " + nullTargetEndpoint.getEndpointId());
             }
             return nullTargetEndpoint;
         }
     }
+
 
     private boolean updateServices(Map<String, Pair<MgpApplication, Integer>> updateAppsMap) {
         boolean updated = false;
@@ -414,7 +548,7 @@ public class RefreshScheduledTask {
     private void removeServices(Set<String> removeAppsSet) {
         for (String appId : removeAppsSet) {
             if (serviceRepository.isBeDependentByAppId(appId)) {
-                serviceRepository.addNullLabelWithEndpointsByAppId(appId);
+                serviceRepository.setNumToZeroAndAddNullLabelWithEndpointsByAppId(appId);
             } else {
                 serviceRepository.deleteWithEndpointsByAppId(appId);
             }

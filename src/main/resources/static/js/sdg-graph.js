@@ -48,15 +48,16 @@ function buildGraph(d) {
     let simulation = d3.forceSimulation(data.nodes)
         .force("link", d3.forceLink(data.links)
             .id(d => d.id)
-            .distance(170)
-            .strength(1.5))
+            .distance(180)
+            .strength(2))
         .force("charge", d3.forceManyBody()
-            .strength(10))
+            .strength(-2000))
         //.force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
         .force("x", d3.forceX(graphWidth / 2))
         .force("y", d3.forceY(graphHeight / 2))
-        .force("collision", d3.forceCollide().radius(85).strength(0.6))
-        .alphaTarget(1)
+        .force("collision", d3.forceCollide().radius(90).strength(0.7))
+        .velocityDecay(0.7)
+        //.alphaTarget(1)
         .on("tick", ticked);
 
     let color = d3.scaleOrdinal(d3.schemeSet2);
@@ -69,6 +70,7 @@ function buildGraph(d) {
 
     let nodelabel = g.append("g").attr("class", "labels").selectAll("g");
 
+    let enterOrExitEvent = true;
     update();
 
     d3.interval(function () {
@@ -89,6 +91,7 @@ function buildGraph(d) {
                     //console.log("Remove node: ");
                     //console.log(oldNode);
                     data.nodes.splice(data.nodes.findIndex(node => node.id === oldNode.id), 1);
+                    enterOrExitEvent = true;
                 }
             });
 
@@ -97,10 +100,13 @@ function buildGraph(d) {
                 let newNode = d.nodes.find(node => node.id === oldNode.id);
                 //console.log(JSON.stringify(oldNode.labels.sort()) + "vs" + JSON.stringify(newNode.labels.sort()));
                 //console.log(!(JSON.stringify(oldNode.labels.sort()) === JSON.stringify(newNode.labels.sort())));
-                if (!(JSON.stringify(oldNode.labels.sort()) === JSON.stringify(newNode.labels.sort()))) {
+                if ((JSON.stringify(oldNode.labels.sort()) !== JSON.stringify(newNode.labels.sort()))) {
                     //console.log("Labels update: " + newNode.id);
                     //console.log(newNode.labels);
                     oldNode.labels = newNode.labels;
+                }
+                if (oldNode.number !== newNode.number) {
+                    oldNode.number = newNode.number;
                 }
             });
 
@@ -117,6 +123,7 @@ function buildGraph(d) {
                     //console.log("Add node: ");
                     //console.log(newNode);
                     data.nodes.push(newNode);
+                    enterOrExitEvent =true;
                 }
             });
 
@@ -133,6 +140,7 @@ function buildGraph(d) {
                    //console.log("Remove link:");
                    //console.log(oldLink);
                    data.links.splice(data.links.findIndex(link => link.type === oldLink.type && link.source.id === oldLink.source.id && link.target.id === oldLink.target.id), 1);
+                   enterOrExitEvent = true;
                }
             });
             // ADD new links
@@ -148,6 +156,7 @@ function buildGraph(d) {
                     //console.log("Add link:");
                     //console.log(newLink);
                     data.links.push(newLink);
+                    enterOrExitEvent = true;
                 }
             });
             update();
@@ -271,16 +280,35 @@ function buildGraph(d) {
         nodelabel.exit().remove();
 
         // UPDATE old nodelabels
+        /*
+        nodelabel.selectAll("text.number-of-instances")
+            .text(d => {return d.number});
+            */
+
         nodelabel.selectAll("rect").remove();
         nodelabel.selectAll("text").remove();
 
+        let oldServiceNodesNum = nodelabel.filter(d => {
+            return d.labels.includes(LABEL_SERVICE);
+        });
+
+        oldServiceNodesNum.append("text")
+            .attr("class", "number-of-instances")
+            .attr("fill-opacity", 0.2)
+            .attr("alignment-baseline", "central")
+            .style("font-size", 28)
+            .style("fill", "#000000")
+            .text(d => d.number);
+
         nodelabel.append("rect")
+            .attr("class", "tag")
             .attr("fill", "#dddddd")
             .attr("fill-opacity", 0.5)
             .attr("rx", 8)
             .attr("ry", 8);
 
         nodelabel.append("text")
+            .attr("class", "tag")
             .attr("dx", 0)
             .attr("dy", d => {
                 if (d.labels.includes(LABEL_SERVICE)) {
@@ -298,13 +326,13 @@ function buildGraph(d) {
                 }
             });
 
-        nodelabel.selectAll("rect")
+        nodelabel.selectAll("rect.tag")
             .attr("width", function() {
-                return (d3.select(this.parentNode).select("text").node().getBBox().width + 8);
+                return (d3.select(this.parentNode).select("text.tag").node().getBBox().width + 8);
             })
             .attr("height", "16px")
             .attr("x", function() {
-                return (d3.select(this.parentNode).select("text").node().getBBox().width + 8) / -2;
+                return (d3.select(this.parentNode).select("text.tag").node().getBBox().width + 8) / -2;
             }).attr("y", d => {
             if (d.labels.includes(LABEL_SERVICE)) {
                 return 40;
@@ -313,22 +341,22 @@ function buildGraph(d) {
             }
         });
 
-        let oldNullNodelabelGraph = nodelabel.filter(d => {
+        let oldNullNodelabel = nodelabel.filter(d => {
             return d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT);
         });
 
-        oldNullNodelabelGraph.append("rect")
-            .attr("class", "null-label")
+        oldNullNodelabel.append("rect")
+            .attr("class", "tag null-tag")
             .attr("fill", "#dddddd")
             .attr("fill-opacity", 0.5)
             .attr("rx", 8)
             .attr("ry", 8);
 
-        oldNullNodelabelGraph.append("text")
-            .attr("class", "null-label")
+        oldNullNodelabel.append("text")
+            .attr("class", "tag null-tag")
             .attr("dx", 0)
             .attr("dy", function (d) {
-                let texts = $(this.parentNode).find("text");
+                let texts = $(this.parentNode).find("text.tag");
                 let position = texts.length - 1;
                 if (d.labels.includes(LABEL_SERVICE)) {
                     return 52 + position * 20;
@@ -340,18 +368,18 @@ function buildGraph(d) {
             .style("fill", "#ce0000")
             .text("<<Null>>");
 
-        oldNullNodelabelGraph.selectAll("rect.null-label")
+        oldNullNodelabel.selectAll("rect.null-tag")
             .attr("width", function() {
-                let text = d3.select(this.parentNode).select("text.null-label").node();
+                let text = d3.select(this.parentNode).select("text.null-tag").node();
                 return (text.getBBox().width + 8);
             })
             .attr("height", "16px")
             .attr("x", function() {
-                let text = d3.select(this.parentNode).select("text.null-label").node();
+                let text = d3.select(this.parentNode).select("text.null-tag").node();
                 return (text.getBBox().width + 8) / -2;
             })
             .attr("y", function (d) {
-                let texts = $(this.parentNode).find("text");
+                let texts = $(this.parentNode).find("text.tag");
                 let position;
                 for (position = 0; position < texts.length; position++) {
                     if (texts[position].textContent === "<<Null>>") {
@@ -368,13 +396,31 @@ function buildGraph(d) {
         // ENTER new nodelabels
         nodelabelEnter = nodelabel.enter().append("g");
 
+        let serviceNodesNum = nodelabelEnter.filter(d => {
+            return d.labels.includes(LABEL_SERVICE);
+        });
+
+        serviceNodesNum.append("text")
+            .attr("class", "number-of-instances")
+            .attr("fill-opacity", 0)
+            .attr("alignment-baseline", "central")
+            .style("font-size", 28)
+            .style("fill", "#000000")
+            .text(d => {
+                if (d.labels.includes(LABEL_SERVICE)) {
+                    return d.number;
+                }
+            });
+
         nodelabelEnter.append("rect")
+            .attr("class", "tag")
             .attr("fill", "#dddddd")
             .attr("fill-opacity", 0)
             .attr("rx", 8)
             .attr("ry", 8);
 
         nodelabelEnter.append("text")
+            .attr("class", "tag")
             .attr("dx", 0)
             .attr("dy", d => {
                 if (d.labels.includes(LABEL_SERVICE)) {
@@ -392,13 +438,13 @@ function buildGraph(d) {
                 }
             });
 
-        nodelabelEnter.selectAll("rect")
+        nodelabelEnter.selectAll("rect.tag")
             .attr("width", function() {
-                return (d3.select(this.parentNode).select("text").node().getBBox().width + 8);
+                return (d3.select(this.parentNode).select("text.tag").node().getBBox().width + 8);
             })
             .attr("height", "16px")
             .attr("x", function() {
-                return (d3.select(this.parentNode).select("text").node().getBBox().width + 8) / -2;
+                return (d3.select(this.parentNode).select("text.tag").node().getBBox().width + 8) / -2;
             }).attr("y", d => {
             if (d.labels.includes(LABEL_SERVICE)) {
                 return 40;
@@ -407,22 +453,22 @@ function buildGraph(d) {
             }
         });
 
-        let nullNodelabelGraph = nodelabelEnter.filter(d => {
+        let nullNodelabel = nodelabelEnter.filter(d => {
             return d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT);
         });
 
-        nullNodelabelGraph.append("rect")
-            .attr("class", "null-label")
+        nullNodelabel.append("rect")
+            .attr("class", "tag null-tag")
             .attr("fill", "#dddddd")
             .attr("fill-opacity", 0)
             .attr("rx", 8)
             .attr("ry", 8);
 
-        nullNodelabelGraph.append("text")
-            .attr("class", "null-label")
+        nullNodelabel.append("text")
+            .attr("class", "tag null-tag")
             .attr("dx", 0)
             .attr("dy", function (d) {
-                let texts = $(this.parentNode).find("text");
+                let texts = $(this.parentNode).find("text.tag");
                 let position = texts.length - 1;
                 if (d.labels.includes(LABEL_SERVICE)) {
                     return 52 + position * 20;
@@ -434,18 +480,18 @@ function buildGraph(d) {
             .style("fill", "#ce0000")
             .text("<<Null>>");
 
-        nullNodelabelGraph.selectAll("rect.null-label")
+        nullNodelabel.selectAll("rect.null-tag")
             .attr("width", function() {
-                let text = d3.select(this.parentNode).select("text.null-label").node();
+                let text = d3.select(this.parentNode).select("text.null-tag").node();
                 return (text.getBBox().width + 8);
             })
             .attr("height", "16px")
             .attr("x", function() {
-                let text = d3.select(this.parentNode).select("text.null-label").node();
+                let text = d3.select(this.parentNode).select("text.null-tag").node();
                 return (text.getBBox().width + 8) / -2;
             })
             .attr("y", function (d) {
-                let texts = $(this.parentNode).find("text");
+                let texts = $(this.parentNode).find("text.tag");
                 let position;
                 for (position = 0; position < texts.length; position++) {
                     if (texts[position].textContent === "<<Null>>") {
@@ -459,11 +505,17 @@ function buildGraph(d) {
                 }
             });
 
-        nodelabelEnter.selectAll("rect")
+        nodelabelEnter.style("pointer-events", "none");
+
+        nodelabelEnter.selectAll("text.number-of-instances")
+            .transition(td)
+            .attr("fill-opacity", 0.2);
+
+        nodelabelEnter.selectAll("rect.tag")
             .transition(td)
             .attr("fill-opacity", 0.5);
 
-        nodelabelEnter.selectAll("text")
+        nodelabelEnter.selectAll("text.tag")
             .transition(td)
             .attr("fill-opacity", 1);
 
@@ -471,8 +523,11 @@ function buildGraph(d) {
 
         simulation.nodes(data.nodes);
         simulation.force("link").links(data.links);
-        //simulation.restart();
-        simulation.alpha(1).restart();
+        if (enterOrExitEvent) {
+            simulation.alpha(1);
+        }
+        simulation.restart();
+        enterOrExitEvent = false;
 
     }
 
@@ -543,6 +598,7 @@ function buildGraph(d) {
                     }
                 })
             )
+            //.classed("hightlight", true);
             .attr("fill-opacity", 0.8);
     }
 
@@ -565,6 +621,7 @@ function buildGraph(d) {
                     }
                 })
             )
+            //.classed("hightlight", false);
             .attr("fill-opacity", 1);
     }
 
