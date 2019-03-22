@@ -4,6 +4,7 @@ import org.neo4j.ogm.annotation.GraphId;
 import org.neo4j.ogm.annotation.Relationship;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Endpoint {
@@ -12,6 +13,7 @@ public class Endpoint {
     private Long id;
 
     private String endpointId;
+    private String systemName;
     private String appName;
     private String method;
     private String path;
@@ -19,7 +21,8 @@ public class Endpoint {
     public Endpoint() {
     }
 
-    public Endpoint(String appName, String method, String path) {
+    public Endpoint(String systemName, String appName, String method, String path) {
+        this.systemName = systemName;
         this.appName = appName;
         this.method = method;
         this.path = path;
@@ -32,6 +35,14 @@ public class Endpoint {
 
     public void setEndpointId(String endpointId) {
         this.endpointId = endpointId;
+    }
+
+    public String getSystemName() {
+        return systemName;
+    }
+
+    public void setSystemName(String systemName) {
+        this.systemName = systemName;
     }
 
     public String getAppName() {
@@ -63,7 +74,7 @@ public class Endpoint {
     }
 
     @Relationship(type = "OWN", direction = Relationship.INCOMING)
-    public Service service;
+    private Service service;
 
     public void ownBy(Service service) {
         this.service = service;
@@ -74,7 +85,7 @@ public class Endpoint {
     }
 
     @Relationship(type = "HTTP_REQUEST", direction = Relationship.OUTGOING)
-    public Set<Endpoint> httpRequestEndpoints;
+    private Set<Endpoint> httpRequestEndpoints;
 
     public void httpRequestToEndpoint(Endpoint endpoint) {
         if (httpRequestEndpoints == null) {
@@ -85,6 +96,40 @@ public class Endpoint {
 
     public Set<Endpoint> getHttpRequestEndpoints() {
         return httpRequestEndpoints;
+    }
+
+    @Relationship(type = "AMQP_PUBLISH", direction = Relationship.INCOMING)
+    private Set<Queue> amqpPublishQueues;
+
+    public void amqpPublishToQueue(Queue queue) {
+        if (amqpPublishQueues == null) {
+            amqpPublishQueues = new HashSet<>();
+        }
+        amqpPublishQueues.add(queue);
+    }
+
+    public void amqpPublishToQueue(List<Queue> queue) {
+        if (amqpPublishQueues == null) {
+            amqpPublishQueues = new HashSet<>();
+        }
+        amqpPublishQueues.addAll(queue);
+    }
+
+    @Relationship(type = "AMQP_SUBSCRIBE", direction = Relationship.OUTGOING)
+    private Set<Queue> amqpSubscribeQueues;
+
+    public void amqpSubscribeToQueue(Queue queue) {
+        if (amqpSubscribeQueues == null) {
+            amqpSubscribeQueues = new HashSet<>();
+        }
+        amqpSubscribeQueues.add(queue);
+    }
+
+    public void amqpSubscribeToQueue(List<Queue> queue) {
+        if (amqpSubscribeQueues == null) {
+            amqpSubscribeQueues = new HashSet<>();
+        }
+        amqpSubscribeQueues.addAll(queue);
     }
 
 }

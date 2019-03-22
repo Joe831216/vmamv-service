@@ -17,7 +17,7 @@ public interface ServiceRegistryRepository extends GraphRepository<ServiceRegist
     @Query("MATCH (s:ServiceRegistry)-[:OWN]->(n:Instance) WHERE n.instanceId = {instanceId} RETURN s")
     ServiceRegistry findByInstanceId(@Param("instanceId") String instanceId);
 
-    ServiceRegistry findByScsName(String scsName);
+    ServiceRegistry findBySystemName(String systemName);
 
     ServiceRegistry findByAppName(String appName);
 

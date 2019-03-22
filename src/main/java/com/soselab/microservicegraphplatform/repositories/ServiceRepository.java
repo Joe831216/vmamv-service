@@ -12,8 +12,8 @@ public interface ServiceRepository extends GraphRepository<Service> {
 
     Service findByAppId(String appId);
 
-    @Query("MATCH (s:Service {scsName:{scsName}, appName:{appName}}) WHERE NOT s.version = {ver} RETURN s")
-    Service findOtherVerInSameSysByScsNameAndAppNameAndVersion(@Param("scsName") String scsName, @Param("appName") String appName, @Param("ver") String version);
+    @Query("MATCH (s:Service {systemName:{systemName}, appName:{appName}}) WHERE NOT s.version = {ver} RETURN s")
+    Service findOtherVerInSameSysBySysNameAndAppNameAndVersion(@Param("systemName") String systemName, @Param("appName") String appName, @Param("ver") String version);
 
     @Query("MATCH (s:Service {appId:{appId}})-[:OWN]->(e:Endpoint) " +
             "OPTIONAL MATCH (e)<-[:HTTP_REQUEST]-(:Endpoint)<-[:OWN]-(o1:Service) " +
@@ -25,11 +25,11 @@ public interface ServiceRepository extends GraphRepository<Service> {
             "WHERE sm.appId = {smAppId} AND tm.appName = {tmAppName} RETURN tm")
     List<Service> findByAppNameInSameSys(@Param("smAppId") String sourceAppId, @Param("tmAppName") String targetAppName);
 
-    @Query("MATCH (m:Service {scsName:{scsName}}) WHERE NOT (m:NullService) RETURN m")
-    List<Service> findByScsName(@Param("scsName") String scsName);
+    @Query("MATCH (m:Service {systemName:{systemName}}) WHERE NOT (m:NullService) RETURN m")
+    List<Service> findBySysName(@Param("systemName") String systemName);
 
-    @Query("MATCH (n:NullService {scsName:{scsName}}) RETURN n")
-    List<NullService> findNullByScsName(@Param("scsName") String scsName);
+    @Query("MATCH (n:NullService {systemName:{systemName}}) RETURN n")
+    List<NullService> findNullBySysName(@Param("systemName") String systemName);
 
     @Query("MATCH (n:NullService {appId:{appId}}) RETURN n")
     Service findNullByAppId(@Param("appId") String appId);

@@ -26,13 +26,13 @@ public class RegistryController {
     private static final Logger logger = LoggerFactory.getLogger(RegistryController.class);
 
     @Autowired
-    ServiceRegistryRepository serviceRegistryRepository;
+    private ServiceRegistryRepository serviceRegistryRepository;
     @Autowired
-    InstanceRepository instanceRepository;
+    private InstanceRepository instanceRepository;
     @Autowired
-    ServiceRepository serviceRepository;
+    private ServiceRepository serviceRepository;
     @Autowired
-    EndpointRepository endpointRepository;
+    private EndpointRepository endpointRepository;
 
     private RestTemplate restTemplate = new RestTemplate();
 
@@ -49,10 +49,10 @@ public class RegistryController {
                 // If this app (service tasks) is not in neo4j then save to neo4j DB
                 String appId = app.getAppId();
                 if (serviceRegistryRepository.findByAppId(appId) == null) {
-                    String scsName = app.getScsName();
+                    String systemName = app.getSystemName();
                     String appName = app.getAppName();
                     String version = app.getVersion();
-                    ServiceRegistry serviceRegistry = new ServiceRegistry(scsName, appName, version);
+                    ServiceRegistry serviceRegistry = new ServiceRegistry(systemName, appName, version);
                     serviceRegistryRepository.save(serviceRegistry);
                     logger.info("Add service tasks: " + appId);
                 }

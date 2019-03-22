@@ -6,7 +6,7 @@ import java.util.ArrayList;
 public class MgpApplication {
 
     private String appId;
-    private String scsName;
+    private String systemName;
     private String appName;
     private String version;
     private ArrayList<MgpInstance> instances;
@@ -14,9 +14,9 @@ public class MgpApplication {
     public MgpApplication() {
     }
 
-    public MgpApplication(String scsName, String appName, String version, @Nullable ArrayList<MgpInstance> instances) {
-        this.appId = scsName + ":" + appName + ":" + version;
-        this.scsName = scsName;
+    public MgpApplication(String systemName, String appName, String version, @Nullable ArrayList<MgpInstance> instances) {
+        this.appId = systemName + ":" + appName + ":" + version;
+        this.systemName = systemName;
         this.appName = appName;
         this.version = version;
         this.instances = instances;
@@ -30,12 +30,12 @@ public class MgpApplication {
         this.appId = appId;
     }
 
-    public String getScsName() {
-        return scsName;
+    public String getSystemName() {
+        return systemName;
     }
 
-    public void setScsName(String scsName) {
-        this.scsName = scsName;
+    public void setSystemName(String systemName) {
+        this.systemName = systemName;
     }
 
     public String getAppName() {

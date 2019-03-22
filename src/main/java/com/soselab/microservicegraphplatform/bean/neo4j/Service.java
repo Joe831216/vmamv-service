@@ -14,16 +14,16 @@ public class Service {
     private Long id;
 
     private String appId;
-    private String scsName;
+    private String systemName;
     private String appName;
     private String version;
     private int number;
 
     public Service(){}
 
-    public Service(@Nullable String scsName, String appName, @Nullable String version, int number) {
-        this.appId = scsName + ":" + appName + ":" + version;
-        this.scsName = scsName;
+    public Service(@Nullable String systemName, String appName, @Nullable String version, int number) {
+        this.appId = systemName + ":" + appName + ":" + version;
+        this.systemName = systemName;
         this.appName = appName;
         this.version = version;
         this.number = number;
@@ -41,12 +41,12 @@ public class Service {
         this.appId = appId;
     }
 
-    public String getScsName() {
-        return scsName;
+    public String getSystemName() {
+        return systemName;
     }
 
-    public void setScsName(String scsName) {
-        this.scsName = scsName;
+    public void setSystemName(String systemName) {
+        this.systemName = systemName;
     }
 
     public String getAppName() {
@@ -74,14 +74,14 @@ public class Service {
     }
 
     @Relationship(type = "REGISTER", direction = Relationship.OUTGOING)
-    public ServiceRegistry serviceRegistry;
+    private ServiceRegistry serviceRegistry;
 
     public void registerTo(ServiceRegistry serviceRegistry) {
         this.serviceRegistry = serviceRegistry;
     }
 
     @Relationship(type = "OWN", direction = Relationship.OUTGOING)
-    public Set<Endpoint> endpoints;
+    private Set<Endpoint> endpoints;
 
     public void ownEndpoint(Endpoint endpoint) {
         if (endpoints == null) {
@@ -102,13 +102,47 @@ public class Service {
     }
 
     @Relationship(type = "HTTP_REQUEST", direction = Relationship.OUTGOING)
-    public Set<Endpoint> httpRequestEndpoints;
+    private Set<Endpoint> httpRequestEndpoints;
 
     public void httpRequestToEndpoint(Endpoint endpoint) {
         if (httpRequestEndpoints == null) {
             httpRequestEndpoints = new HashSet<>();
         }
         httpRequestEndpoints.add(endpoint);
+    }
+
+    @Relationship(type = "AMQP_PUBLISH", direction = Relationship.INCOMING)
+    private Set<Queue> amqpPublishQueues;
+
+    public void amqpPublishToQueue(Queue queue) {
+        if (amqpPublishQueues == null) {
+            amqpPublishQueues = new HashSet<>();
+        }
+        amqpPublishQueues.add(queue);
+    }
+
+    public void amqpPublishToQueue(List<Queue> queue) {
+        if (amqpPublishQueues == null) {
+            amqpPublishQueues = new HashSet<>();
+        }
+        amqpPublishQueues.addAll(queue);
+    }
+
+    @Relationship(type = "AMQP_SUBSCRIBE", direction = Relationship.OUTGOING)
+    private Set<Queue> amqpSubscribeQueues;
+
+    public void amqpSubscribeToQueue(Queue queue) {
+        if (amqpSubscribeQueues == null) {
+            amqpSubscribeQueues = new HashSet<>();
+        }
+        amqpSubscribeQueues.add(queue);
+    }
+
+    public void amqpSubscribeToQueue(List<Queue> queue) {
+        if (amqpSubscribeQueues == null) {
+            amqpSubscribeQueues = new HashSet<>();
+        }
+        amqpSubscribeQueues.addAll(queue);
     }
 
 }

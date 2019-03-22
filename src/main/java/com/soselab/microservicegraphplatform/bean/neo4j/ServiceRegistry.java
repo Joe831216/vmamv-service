@@ -14,15 +14,15 @@ public class ServiceRegistry {
     private Long id;
 
     private String appId;
-    private String scsName;
+    private String systemName;
     private String appName;
     private String version;
 
     public ServiceRegistry() {}
 
-    public ServiceRegistry(String scsName, String appName, String version) {
-        this.appId = scsName + ":" + appName + ":" + version;
-        this.scsName = scsName;
+    public ServiceRegistry(String systemName, String appName, String version) {
+        this.appId = systemName + ":" + appName + ":" + version;
+        this.systemName = systemName;
         this.appName = appName;
         this.version = version;
     }
@@ -39,12 +39,12 @@ public class ServiceRegistry {
         this.appId = appId;
     }
 
-    public String getScsName() {
-        return scsName;
+    public String getSystemName() {
+        return systemName;
     }
 
-    public void setScsName(String scsName) {
-        this.scsName = scsName;
+    public void setSystemName(String systemName) {
+        this.systemName = systemName;
     }
 
     public String getAppName() {
