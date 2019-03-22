@@ -1,5 +1,8 @@
 package com.soselab.microservicegraphplatform.bean.neo4j;
 
+import org.neo4j.ogm.annotation.NodeEntity;
+
+@NodeEntity
 public class NullEndpoint extends Endpoint {
 
     public NullEndpoint() {

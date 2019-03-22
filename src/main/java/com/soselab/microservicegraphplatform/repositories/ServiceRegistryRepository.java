@@ -2,12 +2,14 @@ package com.soselab.microservicegraphplatform.repositories;
 
 import com.soselab.microservicegraphplatform.bean.neo4j.ServiceRegistry;
 import org.springframework.data.neo4j.annotation.Query;
-import org.springframework.data.neo4j.repository.GraphRepository;
+import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 
-public interface ServiceRegistryRepository extends GraphRepository<ServiceRegistry> {
+@Repository
+public interface ServiceRegistryRepository extends Neo4jRepository<ServiceRegistry, Long> {
 
     @Query("MATCH (n:ServiceRegistry) RETURN n")
     ArrayList<ServiceRegistry> findAll();

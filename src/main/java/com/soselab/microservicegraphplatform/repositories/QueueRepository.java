@@ -2,9 +2,11 @@ package com.soselab.microservicegraphplatform.repositories;
 
 import com.soselab.microservicegraphplatform.bean.neo4j.Queue;
 import org.springframework.data.neo4j.annotation.Query;
-import org.springframework.data.neo4j.repository.GraphRepository;
+import org.springframework.data.neo4j.repository.Neo4jRepository;
+import org.springframework.stereotype.Repository;
 
-public interface QueueRepository extends GraphRepository<Queue> {
+@Repository
+public interface QueueRepository extends Neo4jRepository<Queue, Long> {
 
     Queue findByQueueId(String queueId);
 

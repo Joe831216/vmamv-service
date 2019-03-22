@@ -1,7 +1,10 @@
 package com.soselab.microservicegraphplatform.bean.neo4j;
 
+import org.neo4j.ogm.annotation.NodeEntity;
+
 import javax.annotation.Nullable;
 
+@NodeEntity
 public class NullService extends Service {
 
     public NullService() {

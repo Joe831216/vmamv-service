@@ -1,12 +1,14 @@
 package com.soselab.microservicegraphplatform.repositories;
 
 import org.springframework.data.neo4j.annotation.Query;
-import org.springframework.data.neo4j.repository.GraphRepository;
+import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-public interface GeneralRepository extends GraphRepository {
+@Repository
+public interface GeneralRepository extends Neo4jRepository {
 
     @Query("MATCH (s:ServiceRegistry) WITH DISTINCT s.systemName as result RETURN result")
     List<String> getAllSystemName();

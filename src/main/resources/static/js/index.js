@@ -1,3 +1,5 @@
+let stompClient = null;
+
 $(document).ready( function () {
     fetch("/web-page/system-names")
         .then(response => response.json())
@@ -12,12 +14,29 @@ $(document).ready( function () {
                 menu.append(sysButton);
             });
         });
+        connectSocket();
 });
 
-function startGraph(systemName) {
-    buildGraph(systemName.value);
-    $("#systemsDropdownMenuButton").text(systemName.value);
+function connectSocket() {
+    let socket = new SockJS("/mgp-websocket");
+    stompClient = Stomp.over(socket);
+    stompClient.connect({}, function (frame) {
+       console.log("Connected: " + frame);
+    });
 }
 
-//window.addEventListener("load", start);
+function startGraph(systemName) {
+    let graph = null;
+    stompClient.subscribe("/topic/graph/" + systemName.value, function (message) {
+        let data = JSON.parse(message.body);
+        if (graph === null) {
+            graph = new BuildGraph(data);
+        } else {
+            graph.updateData(data);
+        }
+
+    });
+    stompClient.send("/mgp/graph/" + systemName.value);
+    $("#systemsDropdownMenuButton").text(systemName.value);
+}
 

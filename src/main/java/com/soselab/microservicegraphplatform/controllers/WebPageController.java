@@ -2,11 +2,16 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soselab.microservicegraphplatform.bean.mgp.Graph;
 import com.soselab.microservicegraphplatform.repositories.GeneralRepository;
 import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,11 +26,14 @@ public class WebPageController {
     private static final Logger logger = LoggerFactory.getLogger(WebPageController.class);
 
     @Autowired
+    private GeneralRepository generalRepository;
+    @Autowired
     private RefreshScheduledTask refreshScheduledTask;
     @Autowired
-    private GeneralRepository generalRepository;
+    private SimpMessagingTemplate messagingTemplate;
+    @Autowired
+    private ObjectMapper mapper;
 
-    private ObjectMapper mapper = new ObjectMapper();
 
     @GetMapping("/system-names")
     public String getSystems() {
@@ -46,9 +54,21 @@ public class WebPageController {
     }
     */
 
+    /*
     @GetMapping("/graph/{systemName}")
     public String getSystemGraph(@PathVariable("systemName") String systemName) {
         return refreshScheduledTask.getGraphJson(systemName);
+    }
+    */
+
+    @MessageMapping("/graph/{systemName}")
+    @SendTo("/topic/graph/{systemName}")
+    public String getGraph(@DestinationVariable String systemName) throws Exception {
+        return refreshScheduledTask.getGraphJson(systemName);
+    }
+
+    public void sendGraph(String systemName, String data) {
+        messagingTemplate.convertAndSend("/topic/graph/" + systemName, data);
     }
 
 }

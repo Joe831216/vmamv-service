@@ -11,6 +11,7 @@ import com.soselab.microservicegraphplatform.bean.neo4j.*;
 import com.soselab.microservicegraphplatform.bean.eureka.Application;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
 import com.soselab.microservicegraphplatform.bean.neo4j.Queue;
+import com.soselab.microservicegraphplatform.controllers.WebPageController;
 import com.soselab.microservicegraphplatform.repositories.*;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -43,6 +44,8 @@ public class RefreshScheduledTask {
     private EndpointRepository endpointRepository;
     @Autowired
     private QueueRepository queueRepository;
+    @Autowired
+    private WebPageController webPageController;
 
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
@@ -66,6 +69,7 @@ public class RefreshScheduledTask {
         updated.forEach((systemName, isUpdated) -> {
             if (isUpdated) {
                 graphJson.put(systemName, generalRepository.getSystemGraphJson(systemName));
+                webPageController.sendGraph(systemName, graphJson.get(systemName));
             }
         });
     }
