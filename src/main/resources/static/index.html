@@ -64,16 +64,36 @@
 		}
 
 		.links line {
-			stroke: #999;
-			stroke-opacity: 0.6;
+			stroke-linecap: round;
+			stroke: #d6d6d6;
+			stroke-opacity: 1;
 		}
 
-		.labels text {
+		.node-labels text {
 			text-anchor: middle;
 			stroke-width: .005em;
 			fill: #555;
 			font-family: Arial, Helvetica, sans-serif;
 			font-size: 12px;
+		}
+
+		.links text {
+			text-anchor: middle;
+			fill: black;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 8px;
+		}
+
+		.arrow-normal {
+			stroke-width: 0;
+			stroke: #d6d6d6;
+			fill: #d6d6d6;
+		}
+
+		.arrow-warning {
+			stroke-width: 0;
+			stroke: orange;
+			fill: orange;
 		}
 
 		.hightlight {
@@ -109,25 +129,47 @@
 		<defs>
 			<marker
 					id="arrow-m"
+					class="arrow-normal"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"
 					refX="17"
 					refY="6"
 					orient="auto">
-				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"
-					  style="fill: #999;"></path>
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
 			</marker>
 			<marker
 					id="arrow-l"
+					class="arrow-normal"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"
 					refX="22"
 					refY="6"
 					orient="auto">
-				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"
-					  style="fill: #999;"></path>
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
+			</marker>
+			<marker
+					id="arrow-m-warning"
+					class="arrow-warning"
+					markerWidth="10"
+					markerHeight="10"
+					viewBox="0 0 10 10"
+					refX="17"
+					refY="6"
+					orient="auto">
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
+			</marker>
+			<marker
+					id="arrow-l-warning"
+					class="arrow-warning"
+					markerWidth="10"
+					markerHeight="10"
+					viewBox="0 0 10 10"
+					refX="22"
+					refY="6"
+					orient="auto">
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
 			</marker>
 		</defs>
 	</svg>

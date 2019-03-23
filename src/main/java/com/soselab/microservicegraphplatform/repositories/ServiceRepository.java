@@ -17,6 +17,9 @@ public interface ServiceRepository extends Neo4jRepository<Service, Long> {
     @Query("MATCH (s:Service {systemName:{systemName}, appName:{appName}}) WHERE NOT s.version = {ver} RETURN s")
     Service findOtherVerInSameSysBySysNameAndAppNameAndVersion(@Param("systemName") String systemName, @Param("appName") String appName, @Param("ver") String version);
 
+    @Query("MATCH (s:Service {systemName:{systemName}, appName:{appName}}) WHERE NOT s.version = {ver} RETURN s")
+    List<Service> findOtherVersInSameSysBySysNameAndAppNameAndVersion(@Param("systemName") String systemName, @Param("appName") String appName, @Param("ver") String version);
+
     @Query("MATCH (s:Service {appId:{appId}})-[:OWN]->(e:Endpoint) " +
             "OPTIONAL MATCH (e)<-[:HTTP_REQUEST]-(:Endpoint)<-[:OWN]-(o1:Service) " +
             "OPTIONAL MATCH (e)<-[:HTTP_REQUEST]-(o2:Service) " +

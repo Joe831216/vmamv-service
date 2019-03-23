@@ -6,11 +6,13 @@ function BuildGraph(data) {
     const LABEL_ENDPOINT = "Endpoint";
     const LABEL_NULLENDPOINT = "NullEndpoint";
     const LABEL_QUEUE = "Queue";
+    const LABEL_OUTDATEDVERSION = "OutdatedVersion";
 
     const REL_OWN = "OWN";
     const REL_HTTPREQUEST = "HTTP_REQUEST";
     const REL_AMQPPUBLISH = "AMQP_PUBLISH";
     const REL_AMQPSUBSCRIBE = "AMQP_SUBSCRIBE";
+    const REL_NEWERPATCHVERSION = "NEWER_PATCH_VERSION";
 
     const SYMBOL_SERVIVE = d3.symbolSquare;
     const SYMBOL_ENDPOINT = d3.symbolCircle;
@@ -22,6 +24,7 @@ function BuildGraph(data) {
 
     const COLOR_NULL = "#3a3a3a";
     const COLOR_QUEUE = "#85d18c";
+    const COLOR_WARNING = "orange";
 
     const NODE_SCALE = 1.5;
 
@@ -86,7 +89,7 @@ function BuildGraph(data) {
 
     let node = g.append("g").attr("class", "nodes").selectAll("path");
 
-    let nodelabel = g.append("g").attr("class", "labels").selectAll("g");
+    let nodelabel = g.append("g").attr("class", "node-labels").selectAll("g");
 
     let enterOrExitEvent = true;
 
@@ -187,7 +190,7 @@ function BuildGraph(data) {
         simulation.force("link").links(data.links);
 
         // JOIN data and event listeners with old links
-        link = link.data(data.links, function(d) { return d.type + ":" + d.source.id + "-" + d.target.id; });
+        link = link.data(data.links, d => { return d.type + ":" + d.source.id + "-" + d.target.id });
 
         // EXIT old links
         link.exit().transition(t)
@@ -195,9 +198,10 @@ function BuildGraph(data) {
             .remove();
 
         // ENTER new links
-        link = link.enter().append("line")
+        let linkEnter = link.enter().append("g");
+
+        linkEnter.append("line")
             .attr("stroke-width", 0)
-            .attr("stroke-linecap", "round")
             .attr("marker-end", d => {
                 if (d.type === REL_HTTPREQUEST || d.type === REL_AMQPPUBLISH || d.type === REL_AMQPSUBSCRIBE) {
                     if (d.target.labels.includes(LABEL_SERVICE) || d.target.labels.includes(LABEL_QUEUE)) {
@@ -205,12 +209,21 @@ function BuildGraph(data) {
                     } else {
                         return "url(#arrow-m)";
                     }
-                } else {
-                    return null;
+                } else if (d.type === REL_NEWERPATCHVERSION) {
+                    return"url(#arrow-l-warning)"
                 }
             })
-            .call(function(link) { link.transition(td).attr("stroke-width", 3); })
-            .merge(link);
+            .style("stroke", d => {
+                if (d.type === REL_NEWERPATCHVERSION) {
+                    return COLOR_WARNING;
+                }
+            })
+            .call(function(link) { link.transition(td).attr("stroke-width", 3); });
+
+        linkEnter.append("text")
+            .text(d => {return d.type});
+
+        link = linkEnter.merge(link);
 
         // JOIN data and event listeners with old nodes
         node = node.data(data.nodes, function(d) { return d.id;});
@@ -234,7 +247,7 @@ function BuildGraph(data) {
             });
 
         // ENTER new nodes
-        nodeEnter = node.enter().append("path")
+        let nodeEnter = node.enter().append("path")
             .attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
                     return COLOR_NULL;
@@ -244,8 +257,21 @@ function BuildGraph(data) {
                     return color(d.appName);
                 }
             })
-            .attr("stroke", "#fff")
-            .attr("stroke-width", "1.5px")
+            .attr("stroke", d => {
+                if (d.labels.includes(LABEL_OUTDATEDVERSION)) {
+                    return "orange";
+                } else {
+                    return "white";
+                }
+            })
+            .attr("stroke-width", d => {
+                if (d.labels.includes(LABEL_OUTDATEDVERSION)) {
+                    return 3;
+                } else {
+                    return 1.5;
+                }
+            })
+            .attr("stroke-opacity", 0)
             .attr("fill-opacity", 0);
 
         nodeEnter.filter(d => d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT))
@@ -291,6 +317,7 @@ function BuildGraph(data) {
             });
 
         nodeEnter.transition(td)
+            .attr("stroke-opacity", 1)
             .attr("fill-opacity", 1);
 
 
@@ -305,7 +332,7 @@ function BuildGraph(data) {
                 .on("end", dragended));
 
         // JOIN data and event listeners with old nodelabels
-        nodelabel = nodelabel.data(data.nodes);
+        nodelabel = nodelabel.data(data.nodes, function(d) { return d.id;});
 
         // EXIT old nodelabels
         nodelabel.exit().remove();
@@ -317,7 +344,7 @@ function BuildGraph(data) {
         nodelabel.filter(d =>  d.labels.includes(LABEL_SERVICE))
             .append("text")
             .attr("class", "number-of-instances")
-            .attr("fill-opacity", 0.2)
+            .attr("fill-opacity", 0.3)
             .attr("alignment-baseline", "central")
             .style("font-size", 28)
             .style("fill", "#000000")
@@ -419,7 +446,7 @@ function BuildGraph(data) {
             });
 
         // ENTER new nodelabels
-        nodelabelEnter = nodelabel.enter().append("g");
+        let nodelabelEnter = nodelabel.enter().append("g");
 
         let serviceNodesNum = nodelabelEnter.filter(d => {
             return d.labels.includes(LABEL_SERVICE);
@@ -536,7 +563,7 @@ function BuildGraph(data) {
 
         nodelabelEnter.selectAll("text.number-of-instances")
             .transition(td)
-            .attr("fill-opacity", 0.2);
+            .attr("fill-opacity", 0.3);
 
         nodelabelEnter.selectAll("rect.tag")
             .transition(td)
@@ -557,20 +584,30 @@ function BuildGraph(data) {
     }
 
     function ticked() {
-        link.attr("x1", d => { return d.source.x; })
+        link.selectAll("line")
+            .attr("x1", d => { return d.source.x; })
             .attr("y1", d => { return d.source.y; })
             .attr("x2", d => { return d.target.x; })
             .attr("y2", d => { return d.target.y; });
 
+        link.selectAll("text")
+            .attr("x", d => { return (d.source.x + d.target.x) / 2})
+            .attr("y", d => { return (d.source.y + d.target.y) / 2 -3})
+            .attr("transform", d => {
+                return "rotate(" + culDegrees(d.source.x, d.source.y, d.target.x, d.target.y) + " "
+                    + (d.source.x + d.target.x) / 2 + " " + (d.source.y + d.target.y) / 2 +  ")";
+            });
+
         node.attr("transform", d => {
             return "translate(" + d.x + "," + d.y + ")";
         });
-        //.attr("cx", function(d) { return d.x; })
-        //.attr("cy", function(d) { return d.y; });
 
         nodelabel.attr("transform", d => { return "translate(" + d.x + "," + d.y + ")"; });
-        //.attr("x", d => { return d.x; })
-        //.attr("y", d => { return d.y; });
+
+    }
+
+    function culDegrees(x1, y1, x2, y2) {
+        return Math.atan2(y2 - y1, x2 - x1)*180/Math.PI;
     }
 
     function clicked(d) {

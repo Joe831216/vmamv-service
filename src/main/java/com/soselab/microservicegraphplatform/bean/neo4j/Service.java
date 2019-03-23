@@ -1,10 +1,12 @@
 package com.soselab.microservicegraphplatform.bean.neo4j;
 
 import org.neo4j.ogm.annotation.GraphId;
+import org.neo4j.ogm.annotation.Labels;
 import org.neo4j.ogm.annotation.NodeEntity;
 import org.neo4j.ogm.annotation.Relationship;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -14,6 +16,8 @@ public class Service {
 
     @GraphId
     private Long id;
+    @Labels
+    private List<String> labels = new ArrayList<>();
 
     private String appId;
     private String systemName;
@@ -73,6 +77,18 @@ public class Service {
 
     public void setNumber(int number) {
         this.number = number;
+    }
+
+    public List<String> getLabels() {
+        return labels;
+    }
+
+    public void setLabels(List<String> labels) {
+        this.labels = labels;
+    }
+
+    public void addLabel(String label) {
+        labels.add(label);
     }
 
     @Relationship(type = "REGISTER", direction = Relationship.OUTGOING)
@@ -145,6 +161,13 @@ public class Service {
             amqpSubscribeQueues = new HashSet<>();
         }
         amqpSubscribeQueues.addAll(queue);
+    }
+
+    @Relationship(type = "NEWER_PATCH_VERSION", direction = Relationship.OUTGOING)
+    private Service newerPatchVersion;
+
+    public void foundNewPatchVersion(Service service) {
+        newerPatchVersion = service;
     }
 
 }

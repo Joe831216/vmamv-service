@@ -2,6 +2,7 @@ package com.soselab.microservicegraphplatform.tasks;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.primitives.Ints;
 import com.soselab.microservicegraphplatform.bean.actuators.Info;
 import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
 import com.soselab.microservicegraphplatform.bean.eureka.AppList;
@@ -13,6 +14,7 @@ import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
 import com.soselab.microservicegraphplatform.bean.neo4j.Queue;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
 import com.soselab.microservicegraphplatform.repositories.*;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -177,7 +179,11 @@ public class RefreshScheduledTask {
             for (AppInstance instance: app.getInstance()) {
                 if (instance.getStatus().equals("UP")) {
                     String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
-                    String version = restTemplate.getForObject( url + "/info", Info.class).getVersion();
+                    String version = getVersionFromRemoteApp(url);
+                    // Ignore this service if can't get the version.
+                    if (version == null) {
+                        continue;
+                    }
                     String appId = systemName + ":" + appName + ":" + version;
                     Pair<MgpApplication, Integer> appInfo= appInfoAndNum.get(appId);
                     if (appInfo == null) {
@@ -220,7 +226,16 @@ public class RefreshScheduledTask {
         return mgpApplication;
     }
 
-    private Map<String, Object> getSwaggerMap(String serviceUrl) {
+    private String getVersionFromRemoteApp(String serviceUrl) {
+        try {
+            return restTemplate.getForObject( serviceUrl + "/info", Info.class).getVersion();
+        } catch (ResourceAccessException e) {
+            logger.error(e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private Map<String, Object> getSwaggerMapFromRemoteApp(String serviceUrl) {
         String swagger = restTemplate.getForObject(serviceUrl + "/v2/api-docs", String.class);
         Map<String, Object> swaggerMap = null;
         try {
@@ -240,7 +255,7 @@ public class RefreshScheduledTask {
         newAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+            Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 MgpApplication app = appInfoAndNum.getKey();
@@ -254,6 +269,12 @@ public class RefreshScheduledTask {
                         service.ownEndpoint(endpoint);
                     });
                 });
+                // Find newer patch version service.
+                Service newerPatchService = newerPatchVersionDetector(appInfoAndNum.getKey());
+                if (newerPatchService != null) {
+                    service.addLabel("OutdatedVersion");
+                    service.foundNewPatchVersion(newerPatchService);
+                }
                 serviceRepository.save(service);
                 logger.info("Add service: " + service.getAppId());
             }
@@ -280,7 +301,7 @@ public class RefreshScheduledTask {
                 String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                 int port = appInfo.getInstances().get(0).getPort();
                 String serviceUrl = "http://" + ipAddr + ":" + port;
-                Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+                Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
                 updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
             }
         } else {
@@ -294,7 +315,7 @@ public class RefreshScheduledTask {
                         String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                         int port = appInfo.getInstances().get(0).getPort();
                         String serviceUrl = "http://" + ipAddr + ":" + port;
-                        Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+                        Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
                         if (swaggerMap != null) {
                             Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
                             if (dependencyMap.get("httpRequest") != null) {
@@ -360,6 +381,67 @@ public class RefreshScheduledTask {
         addDependencies(appsMap, appSwaggers);
     }
 
+    private Service newerPatchVersionDetector(MgpApplication mgpApplication) {
+        int[] thisAppVerCode = getVersionCode(mgpApplication.getVersion());
+        if (thisAppVerCode != null) {
+            List<Service> otherVerServices = serviceRepository.findOtherVersInSameSysBySysNameAndAppNameAndVersion
+                    (mgpApplication.getSystemName(), mgpApplication.getAppName(), mgpApplication.getVersion());
+            if (otherVerServices.size() > 0) {
+                Pair<Service, int[]> latestPathApp = new ImmutablePair<>(null, thisAppVerCode);
+                for (Service otherVerService : otherVerServices) {
+                    int[] otherAppVerCode = getVersionCode(otherVerService.getVersion());
+                    if (otherAppVerCode != null) {
+                        if (thisAppVerCode[0] == otherAppVerCode [0] && thisAppVerCode[1] == otherAppVerCode[1]) {
+                            if (otherAppVerCode[2] > latestPathApp.getValue()[2]) {
+                                latestPathApp = new ImmutablePair<>(otherVerService, otherAppVerCode);
+                            }
+                        }
+                    }
+                }
+                if (latestPathApp.getKey() != null) {
+                    logger.info("Found newer patch version: " + mgpApplication.getAppId() + " -> " + latestPathApp.getKey().getVersion());
+                    return latestPathApp.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    // Get an version number array form a semantic versioning string.
+    private int[] getVersionCode(String version) {
+        String[] versionParts = version.split("\\.");
+        if (versionParts.length >= 3) {
+            List<Integer> versionCode = new ArrayList<>();
+            for (String part : versionParts) {
+                if (versionCode.size() == 0 && String.valueOf(part.charAt(part.length() - 1)).matches("\\d")) {
+                    String[] numsInPart = part.split("\\D+");
+                    versionCode.add(Integer.parseInt(numsInPart[numsInPart.length - 1]));
+                } else if (versionCode.size() == 1){
+                    if (part.matches("\\d+")) {
+                        versionCode.add(Integer.parseInt(part));
+                    } else {
+                        versionCode.clear();
+                    }
+                } else if (versionCode.size() == 2) {
+                    if (String.valueOf(part.charAt(0)).matches("\\d")) {
+                        String[] numsInPart = part.split("\\D+");
+                        versionCode.add(Integer.parseInt(numsInPart[0]));
+                    } else {
+                        versionCode.clear();
+                    }
+                } else {
+                    if (versionCode.size() == 3) {
+                        break;
+                    }
+                }
+            }
+            if (versionCode.size() == 3) {
+                return Ints.toArray(versionCode);
+            }
+        }
+        return null;
+    }
+
     // Recover apps in neo4j
     private Map<String, Map<String, Object>> recoverServices(ServiceRegistry serviceRegistry, Map<String, Pair<MgpApplication, Integer>> recoveryAppsMap) {
         Map<String, Map<String, Object>> appSwaggers = new HashMap<>();
@@ -368,7 +450,7 @@ public class RefreshScheduledTask {
         recoveryAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = getSwaggerMap(serviceUrl);
+            Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 //String noVerAppId = appInfoAndNum.getKey().getSystemName() + ":" + appInfoAndNum.getKey().getAppName() + ":null";
@@ -402,6 +484,7 @@ public class RefreshScheduledTask {
                 serviceRepository.save(service);
                 logger.info("Recover service: " + service.getAppId());
             }
+            newerPatchVersionDetector(appInfoAndNum.getKey());
         });
 
         return appSwaggers;
@@ -600,6 +683,13 @@ public class RefreshScheduledTask {
                 Service nullTargetService = new NullService(
                         sourceAppId.split(":")[0], targetName, targetVersion, 0
                 );
+                // Find newer patch version service.
+                Service newerPatchService = newerPatchVersionDetector
+                        (new MgpApplication(sourceAppId.split(":")[0], targetName, targetVersion, null));
+                if (newerPatchService != null) {
+                    nullTargetService.addLabel("OutdatedVersion");
+                    nullTargetService.foundNewPatchVersion(newerPatchService);
+                }
                 nullTargetEndpoint = new NullEndpoint(sourceAppId.split(":")[0], targetName, targetMethod, targetPath);
                 nullTargetEndpoint.ownBy(nullTargetService);
                 endpointRepository.save(nullTargetEndpoint);
