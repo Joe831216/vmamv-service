@@ -14,6 +14,11 @@ function BuildGraph(data) {
     const REL_AMQPSUBSCRIBE = "AMQP_SUBSCRIBE";
     const REL_NEWERPATCHVERSION = "NEWER_PATCH_VERSION";
 
+    const REL_TEXT_REL_HTTPREQUEST = "HTTP-REQUEST";
+    const REL_TEXT_AMQPPUBLISH = "AMQP-PUBLISH";
+    const REL_TEXT_AMQPSUBSCRIBE = "AMQP-SUBSCRIBE";
+    const REL_TEXT_NEWERPATCHVERSION = "NEWER-PATCH-VERSION";
+
     const SYMBOL_SERVIVE = d3.symbolSquare;
     const SYMBOL_ENDPOINT = d3.symbolCircle;
     const SYMBOL_QUEUE = d3.symbolHexagonAlt;
@@ -70,7 +75,6 @@ function BuildGraph(data) {
         .force("charge", d3.forceManyBody()
             .strength(-2000)
             .distanceMax(1000))
-        //.force("center", d3.forceCenter(graphWidth / 2, graphHeight / 2))
         .force("x", d3.forceX(graphWidth / 2))
         .force("y", d3.forceY(graphHeight / 2))
         .force("collision", d3.forceCollide().radius(90).strength(0.7))
@@ -182,6 +186,49 @@ function BuildGraph(data) {
         update();
     };
 
+    function hightlight(d) {
+        data.nodes.forEach(node => { node.highlight = false });
+        data.links.forEach(link => { link.highlight = false });
+
+        d.nodes.forEach(HNode => {
+            findNodeById(HNode.id).highlight = true;
+        });
+
+        d.links.forEach(HLink => {
+            findLinkById(HLink.type + ":" + HLink.source + "-" + HLink.target).highlight = true;
+        });
+
+        update();
+    }
+
+    function clearHighlight() {
+        data.nodes.forEach(node => { node.highlight = false });
+        data.links.forEach(link => { link.highlight = false });
+        update();
+    }
+
+    function findNodeById(id) {
+        let result;
+        data.nodes.some(node => {
+            if (node.id === id) {
+                result = node;
+                return true;
+            }
+        });
+        return result;
+    }
+
+    function findLinkById(id) {
+        let result;
+        data.links.some(link => {
+            if (link.type + ":" + link.source.id + "-" + link.target.id === id) {
+                result = link;
+                return true;
+            }
+        });
+        return result;
+    }
+
     function update() {
         //console.log(data);
         console.log("update");
@@ -196,6 +243,13 @@ function BuildGraph(data) {
         link.exit().transition(t)
             .attr("stroke-width", 0)
             .remove();
+
+        // UPDATE old links
+        link.filter(d => !d.highlight)
+            .classed("hightlightLink", false);
+
+        link.filter(d => d.highlight)
+            .classed("hightlightLink", true);
 
         // ENTER new links
         let linkEnter = link.enter().append("g");
@@ -220,8 +274,23 @@ function BuildGraph(data) {
             })
             .call(function(link) { link.transition(td).attr("stroke-width", 3); });
 
-        linkEnter.append("text")
-            .text(d => {return d.type});
+        linkEnter.filter(d => { return d.type !== REL_OWN })
+            .append("text")
+            .attr("fill-opacity", 0)
+            .text(d => {
+                switch (d.type) {
+                    case REL_HTTPREQUEST:
+                        return REL_TEXT_REL_HTTPREQUEST;
+                    case REL_AMQPSUBSCRIBE:
+                        return REL_TEXT_AMQPSUBSCRIBE;
+                    case REL_AMQPPUBLISH:
+                        return REL_TEXT_AMQPPUBLISH;
+                    case REL_NEWERPATCHVERSION:
+                        return REL_TEXT_NEWERPATCHVERSION;
+                }
+            })
+            .style("pointer-events", "none")
+            .transition(td).attr("fill-opacity", 1);
 
         link = linkEnter.merge(link);
 
@@ -235,8 +304,15 @@ function BuildGraph(data) {
             .remove();
 
         // UPDATE old nodes
-        node.transition(t)
-            .attr("fill", d => {
+        node.transition(t);
+
+        node.filter(d => { return !d.highlight})
+            .classed("hightlightNode", false);
+
+        node.filter(d => { return d.highlight})
+            .classed("hightlightNode", true);
+
+        node.attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
                     return COLOR_NULL;
                 } else if (d.labels.includes(LABEL_QUEUE)) {
@@ -308,11 +384,11 @@ function BuildGraph(data) {
         nodeEnter.append("title")
             .text(d => {
                 if (d.labels.includes(LABEL_SERVICE)) {
-                    return d.appId;
+                    return LABEL_SERVICE;
                 } else if (d.labels.includes(LABEL_ENDPOINT)) {
-                    return d.endpointId;
+                    return LABEL_ENDPOINT;
                 } else if (d.labels.includes(LABEL_QUEUE)) {
-                    return d.queueId;
+                    return LABEL_QUEUE;
                 }
             });
 
@@ -592,10 +668,24 @@ function BuildGraph(data) {
 
         link.selectAll("text")
             .attr("x", d => { return (d.source.x + d.target.x) / 2})
-            .attr("y", d => { return (d.source.y + d.target.y) / 2 -3})
+            .attr("y", d => {
+                let y = (d.source.y + d.target.y) / 2;
+                if (d.target.x > d.source.x) {
+                    return y - 3;
+                } else {
+                    return y + 8;
+                }
+            })
             .attr("transform", d => {
-                return "rotate(" + culDegrees(d.source.x, d.source.y, d.target.x, d.target.y) + " "
-                    + (d.source.x + d.target.x) / 2 + " " + (d.source.y + d.target.y) / 2 +  ")";
+                let x = (d.source.x + d.target.x) / 2;
+                let y = (d.source.y + d.target.y) / 2;
+                let deg;
+                if (d.target.x > d.source.x) {
+                    deg = culDegrees(d.source.x, d.source.y, d.target.x, d.target.y);
+                } else {
+                    deg = culDegrees(d.target.x, d.target.y, d.source.x, d.source.y);
+                }
+                return "rotate(" + deg + " " + x + " " + y +  ")";
             });
 
         node.attr("transform", d => {
@@ -611,17 +701,21 @@ function BuildGraph(data) {
     }
 
     function clicked(d) {
-        let scale = 1.5;
-        let translate = [graphWidth / 2 - scale * d.x, graphHeight / 2 - scale * d.y];
+        let scale;
+        let translate;
+        if (graphWidth > 960) {
+            scale = 1.5;
+            translate = [graphWidth * 0.33 - scale * d.x, graphHeight / 2 - scale * d.y];
+        } else {
+            scale = 1;
+            translate = [graphWidth / 2 - scale * d.x, graphHeight * 0.3 - scale * d.y];
+        }
         let transform = d3.zoomIdentity
             .translate(translate[0], translate[1])
             .scale(scale);
+        svg.transition().duration(600).call(zoom.transform, transform);
 
-        svg.transition()
-            .duration(600)
-            .call(zoom.transform, transform);
-
-        initNodeCard(d);
+        openNodeCard(d);
     }
 
     function dragstarted(d) {
@@ -636,6 +730,7 @@ function BuildGraph(data) {
     }
 
     function dragended(d) {
+        //if (!d3.event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
     }
@@ -715,71 +810,141 @@ function BuildGraph(data) {
         }
     }
 
-    function getNodeById(id) {
-        data.nodes.forEach((node => {
-            if (node.id === id) {
-                return node;
+    function openNodeCard(d) {
+        let card = $("#node-card");
+        let cardHeader = card.find(".card-header").first();
+        let cardClose = cardHeader.find(".close").first();
+        let cardHeaderTitle = cardHeader.find(".card-title").first();
+
+        let nodeInfoBody = $("#node-infomation .card-body").first();
+        let nodeInfoTitle = nodeInfoBody.find(".card-title").first();
+
+        let nodeGraphBody = $("#node-graph .card-body").first();
+        let graphList = $("#graph-list");
+        let graphDependentWeak = $("#dependent-weak");
+        let graphBeDependentWeak = $("#be-dependent-weak");
+        let graphDependentStrong = $("#dependent-strong");
+        let graphBeDependentStrong = $("#be-dependent-strong");
+
+        let nodeMonitorBody = $("#node-monitor .card-body").first();
+        let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
+
+        // init
+        clearHighlight();
+        graphList.find(".active").removeClass("active");
+        graphDependentWeak.unbind();
+        graphBeDependentWeak.unbind();
+        graphDependentStrong.unbind();
+        graphBeDependentStrong.unbind();
+
+        // Close button
+        cardClose.on("click", function() {
+            clearHighlight();
+            cardHeader.removeClass("show");
+            nodeInfoBody.removeClass("show");
+            nodeMonitorBody.removeClass("show");
+            card.removeClass("show");
+        });
+
+        // Card header
+        if (d.labels.includes(LABEL_ENDPOINT)) {
+            cardHeaderTitle.empty().append("<span class=\"badge badge-pill\">" + d.method.toUpperCase() + "</span>");
+            if (d.method === "get") {
+                cardHeaderTitle.find(".badge").addClass("badge-primary");
+            } else if (d.method === "post") {
+                cardHeaderTitle.find(".badge").addClass("badge-success");
+            } else if (d.method === "put") {
+                cardHeaderTitle.find(".badge").addClass("badge-warning");
+            }else if (d.method === "delete") {
+                cardHeaderTitle.find(".badge").addClass("badge-danger");
             }
-        }));
+            cardHeaderTitle.append(" " + d.path);
+        } else if (d.labels.includes(LABEL_SERVICE)) {
+            cardHeaderTitle.empty()
+                .append(d.appName)
+                .append(" <span class=\"badge badge-pill badge-secondary\">" + d.version + "</span>");
+        } else if (d.labels.includes(LABEL_QUEUE)) {
+            cardHeaderTitle.empty()
+                .append("<span class=\"badge badge-pill badge-info\">MESSAGE QUEUE</span>")
+                .append(" " + d.queueName);
+        }
+
+        // Info tab
+        if (d.labels.includes(LABEL_ENDPOINT)) {
+            nodeInfoTitle.empty().append("");
+        } else if (d.labels.includes(LABEL_SERVICE)) {
+            //nodeInfoTitle.empty().append(d.version);
+        }
+
+        // Graph tab
+        graphDependentWeak.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/dependent-chain/weak/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        hightlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
+        graphBeDependentWeak.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/be-dependent-chain/weak/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        hightlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
+        graphDependentStrong.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/dependent-chain/strong/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        hightlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
+        graphBeDependentStrong.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/be-dependent-chain/strong/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        hightlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
+        // Show
+        if (!card.hasClass("show")) {
+            cardHeader.addClass("show");
+            nodeInfoBody.addClass("show");
+            nodeGraphBody.addClass("show");
+            nodeMonitorBody.addClass("show");
+            card.addClass("show");
+        }
     }
-}
 
-function initNodeCard(d) {
-	let card = document.getElementById("node-card");
-	let cardHeader = card.getElementsByClassName("card-header")[0];
-	let cardClose = cardHeader.getElementsByClassName("close")[0];
-	let cardHeaderTitle = cardHeader.getElementsByClassName("card-title")[0];
-	let nodeInfoBody = document.getElementById("node-infomation").getElementsByClassName("card-body")[0];
-	let nodeInfoTitle = nodeInfoBody.getElementsByClassName("card-title")[0];
-	let nodeMonitorBody = document.getElementById("node-monitor").getElementsByClassName("card-body")[0];
-	let nodeMonitorTitle = nodeMonitorBody.getElementsByClassName("card-title")[0];
-
-	cardClose.addEventListener("click", function() {
-		cardHeader.classList.remove("show");
-		nodeInfoBody.classList.remove("show");
-		nodeMonitorBody.classList.remove("show");
-		card.classList.remove("show");
-	});
-	
-	// Card header
-	if (d.labels.includes(LABEL_ENDPOINT)) {
-		cardHeaderTitle.innerHTML = "[" + d.method + "] " + d.path;
-	} else if (d.labels.includes(LABEL_SERVICE)) {
-		cardHeaderTitle.innerHTML = d.appName;
-	}
-	
-	// Node info
-	if (d.labels.includes(LABEL_ENDPOINT)) {
-		nodeInfoTitle.innerHTML = "";
-	} else if (d.labels.includes(LABEL_SERVICE)) {
-		nodeInfoTitle.innerHTML = d.version;
-	}
-	
-	//nodeMonitorTitle.innerHTML = d.group;
-
-	if (!card.classList.contains("show")) {
-		cardHeader.classList.add("show");
-		nodeInfoBody.classList.add("show");
-		nodeMonitorBody.classList.add("show");
-		card.classList.add("show");
-	}
-
-	fetch(d.url + "/health")
-	.then(response => response.json())
-	.then(json => {
-		/*
-		var node = document.createElement("pre");
-		node.id = "health-json"
-		nodeMonitorBody.appendChild(node);
-		*/
-		$("#health-json").empty();
-		$("#health-json").jsonViewer(json, {collapsed: true, withQuotes: false});
-	});
-
-	fetch(d.url + "/metrics")
-	.then(response => response.json())
-	.then(json => {
-		$("#metrics-json").empty();
-		$("#metrics-json").jsonViewer(json, {collapsed: true, withQuotes: false});
-	});
 }

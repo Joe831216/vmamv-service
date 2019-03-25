@@ -2,25 +2,20 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.soselab.microservicegraphplatform.bean.mgp.Graph;
 import com.soselab.microservicegraphplatform.repositories.GeneralRepository;
 import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -49,6 +44,26 @@ public class WebPageController {
             logger.error(e.getMessage(), e);
         }
         return result;
+    }
+
+    @GetMapping("/graph/dependent-chain/weak/{id}")
+    public String getDependentChainWeak(@PathVariable("id") Long id) {
+        return generalRepository.getDependentOnChainFromServiceUsingWeakAlgorithmById(id);
+    }
+
+    @GetMapping("/graph/be-dependent-chain/weak/{id}")
+    public String getBeDependentChainWeak(@PathVariable("id") Long id) {
+        return generalRepository.getBeDependentOnChainFromServiceUsingWeakAlgorithmById(id);
+    }
+
+    @GetMapping("/graph/dependent-chain/strong/{id}")
+    public String getDependentChainStrong(@PathVariable("id") Long id) {
+        return generalRepository.getDependentOnChainFromServiceUsingStrongAlgorithmById(id);
+    }
+
+    @GetMapping("/graph/be-dependent-chain/strong/{id}")
+    public String getBeDependentChainStrong(@PathVariable("id") Long id) {
+        return generalRepository.getBeDependentOnChainFromServiceUsingStrongAlgorithmById(id);
     }
 
     @MessageMapping("/graph/{systemName}")

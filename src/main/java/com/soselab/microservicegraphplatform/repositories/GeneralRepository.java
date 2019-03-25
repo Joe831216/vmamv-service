@@ -31,4 +31,32 @@ public interface GeneralRepository extends Neo4jRepository {
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getSystemGraphJson(@Param("systemName") String systemName);
 
+    @Query("MATCH (n) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes, relationships " +
+            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
+            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
+    String getDependentOnChainFromServiceUsingWeakAlgorithmById(@Param("id") Long appId);
+
+    @Query("MATCH (n) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
+            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
+            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
+    String getBeDependentOnChainFromServiceUsingWeakAlgorithmById(@Param("id") Long appId);
+
+    @Query("MATCH (n) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes, relationships " +
+            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
+            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
+    String getDependentOnChainFromServiceUsingStrongAlgorithmById(@Param("id") Long appId);
+
+    @Query("MATCH (n) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
+            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
+            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
+    String getBeDependentOnChainFromServiceUsingStrongAlgorithmById(@Param("id") Long appId);
+
 }

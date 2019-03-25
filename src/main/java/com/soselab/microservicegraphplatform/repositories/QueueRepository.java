@@ -10,7 +10,7 @@ public interface QueueRepository extends Neo4jRepository<Queue, Long> {
 
     Queue findByQueueId(String queueId);
 
-    @Query("MATCH (q:Queue) WHERE NOT (q)<-[:AMQP_SUBSCRIBE]-() OR (q)-[:AMQP_PUBLISH]->() DETACH DELETE q")
+    @Query("MATCH (q:Queue) WHERE NOT (q)<-[:AMQP_SUBSCRIBE]-() AND NOT (q)-[:AMQP_PUBLISH]->() DETACH DELETE q")
     void deleteUselessQueues();
 
 }
