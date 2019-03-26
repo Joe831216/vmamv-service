@@ -2,6 +2,7 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
 import com.soselab.microservicegraphplatform.repositories.GeneralRepository;
 import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
@@ -29,6 +30,8 @@ public class WebPageController {
     @Autowired
     private RefreshScheduledTask refreshScheduledTask;
     @Autowired
+    private EurekaAndServicesRestTool eurekaAndServicesRestTool;
+    @Autowired
     private SimpMessagingTemplate messagingTemplate;
     @Autowired
     private ObjectMapper mapper;
@@ -44,6 +47,16 @@ public class WebPageController {
             logger.error(e.getMessage(), e);
         }
         return result;
+    }
+
+    @GetMapping("/graph/providers/{id}")
+    public String getProviders(@PathVariable("id") Long id) {
+        return generalRepository.getProviders(id);
+    }
+
+    @GetMapping("/graph/consumers/{id}")
+    public String getComsumers(@PathVariable("id") Long id) {
+        return generalRepository.getConsumers(id);
     }
 
     @GetMapping("/graph/dependent-chain/weak/{id}")
@@ -64,6 +77,12 @@ public class WebPageController {
     @GetMapping("/graph/be-dependent-chain/strong/{id}")
     public String getBeDependentChainStrong(@PathVariable("id") Long id) {
         return generalRepository.getBeDependentOnChainFromServiceUsingStrongAlgorithmById(id);
+    }
+
+    @GetMapping("/app/swagger/{appId}")
+    public String getBeDependentChainStrong(@PathVariable("appId") String appId) {
+        String[] appInfo = appId.split(":");
+        return eurekaAndServicesRestTool.getSwaggerFromRemoteApp(appInfo[0], appInfo[1], appInfo[2]);
     }
 
     @MessageMapping("/graph/{systemName}")

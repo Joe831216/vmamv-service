@@ -186,7 +186,7 @@ function BuildGraph(data) {
         update();
     };
 
-    function hightlight(d) {
+    function highlight(d) {
         data.nodes.forEach(node => { node.highlight = false });
         data.links.forEach(link => { link.highlight = false });
 
@@ -246,10 +246,10 @@ function BuildGraph(data) {
 
         // UPDATE old links
         link.filter(d => !d.highlight)
-            .classed("hightlightLink", false);
+            .classed("hightlight-link", false);
 
         link.filter(d => d.highlight)
-            .classed("hightlightLink", true);
+            .classed("hightlight-link", true);
 
         // ENTER new links
         let linkEnter = link.enter().append("g");
@@ -266,13 +266,16 @@ function BuildGraph(data) {
                 } else if (d.type === REL_NEWERPATCHVERSION) {
                     return"url(#arrow-l-warning)"
                 }
-            })
+            })/*
             .style("stroke", d => {
                 if (d.type === REL_NEWERPATCHVERSION) {
                     return COLOR_WARNING;
                 }
-            })
+            })*/
             .call(function(link) { link.transition(td).attr("stroke-width", 3); });
+
+        linkEnter.filter(d => d.type === REL_NEWERPATCHVERSION)
+            .classed("warning-link", true);
 
         linkEnter.filter(d => { return d.type !== REL_OWN })
             .append("text")
@@ -307,10 +310,10 @@ function BuildGraph(data) {
         node.transition(t);
 
         node.filter(d => { return !d.highlight})
-            .classed("hightlightNode", false);
+            .classed("hightlight-node", false);
 
         node.filter(d => { return d.highlight})
-            .classed("hightlightNode", true);
+            .classed("hightlight-node", true);
 
         node.attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
@@ -332,7 +335,7 @@ function BuildGraph(data) {
                 } else {
                     return color(d.appName);
                 }
-            })
+            })/*
             .attr("stroke", d => {
                 if (d.labels.includes(LABEL_OUTDATEDVERSION)) {
                     return "orange";
@@ -346,9 +349,12 @@ function BuildGraph(data) {
                 } else {
                     return 1.5;
                 }
-            })
+            })*/
             .attr("stroke-opacity", 0)
             .attr("fill-opacity", 0);
+
+        nodeEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION))
+            .classed("warning-node", true);
 
         nodeEnter.filter(d => d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT))
             .attr("d", d3.symbol()
@@ -817,25 +823,38 @@ function BuildGraph(data) {
         let cardHeaderTitle = cardHeader.find(".card-title").first();
 
         let nodeInfoBody = $("#node-infomation .card-body").first();
-        let nodeInfoTitle = nodeInfoBody.find(".card-title").first();
+        //let nodeInfoTitle = nodeInfoBody.find(".card-title").first();
 
         let nodeGraphBody = $("#node-graph .card-body").first();
         let graphList = $("#graph-list");
-        let graphDependentWeak = $("#dependent-weak");
-        let graphBeDependentWeak = $("#be-dependent-weak");
-        let graphDependentStrong = $("#dependent-strong");
-        let graphBeDependentStrong = $("#be-dependent-strong");
+        let graphProvider = $("#graph-providers");
+        let graphConsumers = $("#graph-consumers");
+        let graphDependentWeak = $("#graph-dependent-weak");
+        let graphBeDependentWeak = $("#graph-be-dependent-weak");
+        let graphDependentStrong = $("#graph-dependent-strong");
+        let graphBeDependentStrong = $("#graph-be-dependent-strong");
 
         let nodeMonitorBody = $("#node-monitor .card-body").first();
         let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
+        let healthJson = $("#health-json");
+        let metricsJson = $("#metrics-json");
 
         // init
         clearHighlight();
+        cardHeaderTitle.empty();
+
+        nodeInfoBody.empty();
+
         graphList.find(".active").removeClass("active");
+        graphProvider.unbind();
+        graphConsumers.unbind();
         graphDependentWeak.unbind();
         graphBeDependentWeak.unbind();
         graphDependentStrong.unbind();
         graphBeDependentStrong.unbind();
+
+        healthJson.empty();
+        metricsJson.empty();
 
         // Close button
         cardClose.on("click", function() {
@@ -848,7 +867,7 @@ function BuildGraph(data) {
 
         // Card header
         if (d.labels.includes(LABEL_ENDPOINT)) {
-            cardHeaderTitle.empty().append("<span class=\"badge badge-pill\">" + d.method.toUpperCase() + "</span>");
+            cardHeaderTitle.append("<span class=\"badge badge-pill\">" + d.method.toUpperCase() + "</span>");
             if (d.method === "get") {
                 cardHeaderTitle.find(".badge").addClass("badge-primary");
             } else if (d.method === "post") {
@@ -860,23 +879,61 @@ function BuildGraph(data) {
             }
             cardHeaderTitle.append(" " + d.path);
         } else if (d.labels.includes(LABEL_SERVICE)) {
-            cardHeaderTitle.empty()
-                .append(d.appName)
+            cardHeaderTitle.append(d.appName)
                 .append(" <span class=\"badge badge-pill badge-secondary\">" + d.version + "</span>");
         } else if (d.labels.includes(LABEL_QUEUE)) {
-            cardHeaderTitle.empty()
-                .append("<span class=\"badge badge-pill badge-info\">MESSAGE QUEUE</span>")
+            cardHeaderTitle.append("<span class=\"badge badge-pill badge-info\">MESSAGE QUEUE</span>")
                 .append(" " + d.queueName);
         }
 
         // Info tab
         if (d.labels.includes(LABEL_ENDPOINT)) {
-            nodeInfoTitle.empty().append("");
         } else if (d.labels.includes(LABEL_SERVICE)) {
-            //nodeInfoTitle.empty().append(d.version);
+            fetch("/web-page/app/swagger/" + d.appId)
+                .then(response => response.json())
+                .then(json => {
+                    nodeInfoBody.append("<a href='http://" + json.host + "/swagger-ui.html' target='_blank'>Swagger UI</a>");
+                    for (let key in json.info) {
+                        if (key !== "version" && key !== "title") {
+                            nodeInfoBody.append("<h5 class=\"card-title\">" + key.charAt(0).toUpperCase() + key.slice(1) + "</h5>");
+                            nodeInfoBody.append(json.info[key]);
+                        }
+                    }
+                    startMonitor(json.host);
+                });
         }
 
         // Graph tab
+        graphProvider.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/providers/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        highlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
+        graphConsumers.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                fetch("/web-page/graph/consumers/" + d.id)
+                    .then(response => response.json())
+                    .then(json => {
+                        highlight(json);
+                    });
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+            }
+        });
+
         graphDependentWeak.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
@@ -884,7 +941,7 @@ function BuildGraph(data) {
                 fetch("/web-page/graph/dependent-chain/weak/" + d.id)
                     .then(response => response.json())
                     .then(json => {
-                        hightlight(json);
+                        highlight(json);
                     });
             } else {
                 $(this).removeClass("active");
@@ -899,7 +956,7 @@ function BuildGraph(data) {
                 fetch("/web-page/graph/be-dependent-chain/weak/" + d.id)
                     .then(response => response.json())
                     .then(json => {
-                        hightlight(json);
+                        highlight(json);
                     });
             } else {
                 $(this).removeClass("active");
@@ -914,7 +971,7 @@ function BuildGraph(data) {
                 fetch("/web-page/graph/dependent-chain/strong/" + d.id)
                     .then(response => response.json())
                     .then(json => {
-                        hightlight(json);
+                        highlight(json);
                     });
             } else {
                 $(this).removeClass("active");
@@ -929,13 +986,28 @@ function BuildGraph(data) {
                 fetch("/web-page/graph/be-dependent-chain/strong/" + d.id)
                     .then(response => response.json())
                     .then(json => {
-                        hightlight(json);
+                        highlight(json);
                     });
             } else {
                 $(this).removeClass("active");
                 clearHighlight();
             }
         });
+
+        // Monitor
+        function startMonitor(host) {
+            fetch("http://" + host + "/health")
+                .then(response => response.json())
+                .then(json => {
+                    healthJson.jsonViewer(json, {collapsed: true, withQuotes: false});
+                });
+
+            fetch("http://" + host + "/metrics")
+                .then(response => response.json())
+                .then(json => {
+                    metricsJson.jsonViewer(json, {collapsed: true, withQuotes: false});
+                });
+        }
 
         // Show
         if (!card.hasClass("show")) {

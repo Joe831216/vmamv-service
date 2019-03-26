@@ -59,4 +59,30 @@ public interface GeneralRepository extends Neo4jRepository {
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getBeDependentOnChainFromServiceUsingStrongAlgorithmById(@Param("id") Long appId);
 
+    @Query("MATCH (n) WHERE ID(n) = {id}" +
+            "OPTIONAL MATCH (n)-[:HTTP_REQUEST]->(p1) " +
+            "OPTIONAL MATCH (n)-[:OWN]->(:Endpoint)-[:HTTP_REQUEST]->(p2) " +
+            "OPTIONAL MATCH (n)-[:AMQP_SUBSCRIBE]->(p3) WHERE n:Service OR n:Endpoint " +
+            "OPTIONAL MATCH (n)-[:OWN]->(:Endpoint)-[:AMQP_SUBSCRIBE]->(p4) " +
+            "OPTIONAL MATCH (n)-[:AMQP_PUBLISH]->(p5) WHERE n:Queue " +
+            "WITH [p1, p2, p3, p4, p5] as coll " +
+            "UNWIND coll AS ps " +
+            "WITH collect(DISTINCT ps) as ns " +
+            "WITH [node in ns | node {id:id(node)}] as nodes " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:[]})")
+    String getProviders(@Param("id") Long appId);
+
+    @Query("MATCH (n) WHERE ID(n) = {id}" +
+            "OPTIONAL MATCH (n)<-[:HTTP_REQUEST]-(p1) " +
+            "OPTIONAL MATCH (n)-[:OWN]->(:Endpoint)<-[:HTTP_REQUEST]-(p2) " +
+            "OPTIONAL MATCH (n)<-[:AMQP_PUBLISH]-(p3) WHERE n:Service OR n:Endpoint " +
+            "OPTIONAL MATCH (n)-[:OWN]->(:Endpoint)<-[:AMQP_PUBLISH]-(p4) " +
+            "OPTIONAL MATCH (n)<-[:AMQP_SUBSCRIBE]-(p5) WHERE n:Queue " +
+            "WITH [p1, p2, p3, p4, p5] as coll " +
+            "UNWIND coll AS ps " +
+            "WITH collect(DISTINCT ps) as ns " +
+            "WITH [node in ns | node {id:id(node)}] as nodes " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:[]})")
+    String getConsumers(@Param("id") Long appId);
+
 }
