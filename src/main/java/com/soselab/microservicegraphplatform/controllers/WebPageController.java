@@ -3,6 +3,7 @@ package com.soselab.microservicegraphplatform.controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
+import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.repositories.GeneralRepository;
 import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
@@ -59,28 +60,28 @@ public class WebPageController {
         return generalRepository.getConsumers(id);
     }
 
-    @GetMapping("/graph/dependent-chain/weak/{id}")
-    public String getDependentChainWeak(@PathVariable("id") Long id) {
-        return generalRepository.getDependentOnChainFromServiceUsingWeakAlgorithmById(id);
+    @GetMapping("/graph/strong-dependent-chain/{id}")
+    public String getStrongDependencyChain(@PathVariable("id") Long id) {
+        return generalRepository.getStrongDependencyChainById(id);
     }
 
-    @GetMapping("/graph/be-dependent-chain/weak/{id}")
-    public String getBeDependentChainWeak(@PathVariable("id") Long id) {
-        return generalRepository.getBeDependentOnChainFromServiceUsingWeakAlgorithmById(id);
+    @GetMapping("/graph/weak-dependent-chain/{id}")
+    public String getWeakDependencyChain(@PathVariable("id") Long id) {
+        return generalRepository.getWeakDependencyChainById(id);
     }
 
-    @GetMapping("/graph/dependent-chain/strong/{id}")
-    public String getDependentChainStrong(@PathVariable("id") Long id) {
-        return generalRepository.getDependentOnChainFromServiceUsingStrongAlgorithmById(id);
+    @GetMapping("/graph/strong-subordinate-chain/{id}")
+    public String getStrongSubordinateChain(@PathVariable("id") Long id) {
+        return generalRepository.getStrongSubordinateChainById(id);
     }
 
-    @GetMapping("/graph/be-dependent-chain/strong/{id}")
-    public String getBeDependentChainStrong(@PathVariable("id") Long id) {
-        return generalRepository.getBeDependentOnChainFromServiceUsingStrongAlgorithmById(id);
+    @GetMapping("/graph/weak-subordinate-chain/{id}")
+    public String getWeakSubordinateChain(@PathVariable("id") Long id) {
+        return generalRepository.getWeakSubordinateChainById(id);
     }
 
     @GetMapping("/app/swagger/{appId}")
-    public String getBeDependentChainStrong(@PathVariable("appId") String appId) {
+    public String getSwagger(@PathVariable("appId") String appId) {
         String[] appInfo = appId.split(":");
         return eurekaAndServicesRestTool.getSwaggerFromRemoteApp(appInfo[0], appInfo[1], appInfo[2]);
     }
@@ -93,6 +94,10 @@ public class WebPageController {
 
     public void sendGraph(String systemName, String data) {
         messagingTemplate.convertAndSend("/topic/graph/" + systemName, data);
+    }
+
+    public void sendNotification(String systemName, WebNotification notification) {
+        messagingTemplate.convertAndSend("/topic/notification/" + systemName, notification);
     }
 
 }

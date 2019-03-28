@@ -8,6 +8,7 @@ import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
 import com.soselab.microservicegraphplatform.bean.eureka.AppList;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
+import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.*;
 import com.soselab.microservicegraphplatform.bean.eureka.Application;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
@@ -155,6 +156,44 @@ public class RefreshScheduledTask {
 
                         // If the graph was be updated then return true.
                         if (newAppsMap.size() > 0 || removeAppsSet.size() > 0 || appsUpdated) {
+                            // App up notification.
+                            if (newAppsMap.size() > 0) {
+                                WebNotification notification = new WebNotification();
+                                notification.setTitle("Services up");
+                                String content = "";
+                                int index = 0;
+                                for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: newAppsMap.entrySet()) {
+                                    String appName = entry.getValue().getKey().getAppName();
+                                    String version = entry.getValue().getKey().getVersion();
+                                    content += appName + " : " + version;
+                                    if (index != newAppsMap.size() - 1) {
+                                        content += "<br>";
+                                    } else {
+                                        content += ".";
+                                    }
+                                }
+                                notification.setContent(content);
+                                webPageController.sendNotification(systemName, notification);
+                            }
+                            // App down notification.
+                            if (removeAppsSet.size() > 0) {
+                                WebNotification notification = new WebNotification();
+                                notification.setTitle("Services down");
+                                String content = "";
+                                int index = 0;
+                                for (String appId : removeAppsSet) {
+                                    String[] appInfo = appId.split(":");
+                                    String appName = appInfo[1];
+                                    String version = appInfo[2];
+                                    content += appName + " : " + version;
+                                    if (index > newAppsMap.size() - 1) {
+                                        content += "<br>";
+                                    }
+                                }
+                                notification.setContent(content);
+                                webPageController.sendNotification(systemName, notification);
+                            }
+
                             updated.put(systemName, true);
                         } else {
                             updated.put(systemName, false);
@@ -404,6 +443,11 @@ public class RefreshScheduledTask {
                     }
                 }
                 if (latestPathApp.getKey() != null) {
+                    WebNotification notification = new WebNotification();
+                    notification.setTitle("Waring");
+                    notification.setContent("Found newer patch version: " +
+                            mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " -> " + latestPathApp.getKey().getVersion());
+                    webPageController.sendNotification(mgpApplication.getSystemName(), notification);
                     logger.info("Found newer patch version: " + mgpApplication.getAppId() + " -> " + latestPathApp.getKey().getVersion());
                     return latestPathApp.getKey();
                 }
@@ -425,6 +469,11 @@ public class RefreshScheduledTask {
                         if (thisAppVerCode[0] == otherAppVerCode [0] && thisAppVerCode[1] == otherAppVerCode[1]) {
                             if (otherAppVerCode[2] < thisAppVerCode[2]) {
                                 olderVerServices.add(otherVerService);
+                                WebNotification notification = new WebNotification();
+                                notification.setTitle("Waring");
+                                notification.setContent("Found older patch version: " +
+                                        mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " <- " + otherVerService.getVersion());
+                                webPageController.sendNotification(mgpApplication.getSystemName(), notification);
                                 logger.info("Found older patch version: " + mgpApplication.getAppId() + " -> " + otherVerService.getVersion());
                             }
                         }

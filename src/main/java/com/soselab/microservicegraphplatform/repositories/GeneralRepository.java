@@ -36,28 +36,28 @@ public interface GeneralRepository extends Neo4jRepository {
             "WITH [node in nodes | node {id:id(node)}] as nodes, " +
             "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
-    String getDependentOnChainFromServiceUsingWeakAlgorithmById(@Param("id") Long appId);
-
-    @Query("MATCH (n) WHERE ID(n) = {id} " +
-            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
-            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
-            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
-            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
-    String getBeDependentOnChainFromServiceUsingWeakAlgorithmById(@Param("id") Long appId);
+    String getStrongDependencyChainById(@Param("id") Long id);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes, relationships " +
             "WITH [node in nodes | node {id:id(node)}] as nodes, " +
             "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
-    String getDependentOnChainFromServiceUsingStrongAlgorithmById(@Param("id") Long appId);
+    String getWeakDependencyChainById(@Param("id") Long id);
+
+    @Query("MATCH (n) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
+            "WITH [node in nodes | node {id:id(node)}] as nodes, " +
+            "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
+            "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
+    String getStrongSubordinateChainById(@Param("id") Long id);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
             "WITH [node in nodes | node {id:id(node)}] as nodes, " +
             "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
-    String getBeDependentOnChainFromServiceUsingStrongAlgorithmById(@Param("id") Long appId);
+    String getWeakSubordinateChainById(@Param("id") Long id);
 
     @Query("MATCH (n) WHERE ID(n) = {id}" +
             "OPTIONAL MATCH (n)-[:HTTP_REQUEST]->(p1) " +

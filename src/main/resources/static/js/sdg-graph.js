@@ -78,7 +78,7 @@ function BuildGraph(data) {
         .force("x", d3.forceX(graphWidth / 2))
         .force("y", d3.forceY(graphHeight / 2))
         .force("collision", d3.forceCollide().radius(90).strength(0.7))
-        .velocityDecay(0.8)
+        .velocityDecay(0.9)
         .alphaTarget(0.2)
         .on("tick", ticked);
 
@@ -321,7 +321,6 @@ function BuildGraph(data) {
 
         // JOIN data and event listeners with old nodes
         node = node.data(data.nodes, function(d) { return d.id;});
-        //node = node.data(data.nodes);
 
         // EXIT old nodes
         node.exit().transition(t)
@@ -825,6 +824,7 @@ function BuildGraph(data) {
     }
 
     function openNodeCard(d) {
+        let cardDiv = $("#card-div");
         let card = $("#node-card");
         let cardHeader = card.find(".card-header").first();
         let cardClose = cardHeader.find(".close").first();
@@ -837,10 +837,10 @@ function BuildGraph(data) {
         let graphList = $("#graph-list");
         let graphProvider = $("#graph-providers");
         let graphConsumers = $("#graph-consumers");
-        let graphDependentWeak = $("#graph-dependent-weak");
-        let graphBeDependentWeak = $("#graph-be-dependent-weak");
-        let graphDependentStrong = $("#graph-dependent-strong");
-        let graphBeDependentStrong = $("#graph-be-dependent-strong");
+        let graphDependencyStrong = $("#graph-dependency-strong");
+        let graphDependencyWeak = $("#graph-dependency-weak");
+        let graphSubordinateStrong = $("#graph-subordinate-strong");
+        let graphSubordinateWeak = $("#graph-subordinate-weak");
 
         let nodeMonitorBody = $("#node-monitor .card-body").first();
         let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
@@ -856,10 +856,10 @@ function BuildGraph(data) {
         graphList.find(".active").removeClass("active");
         graphProvider.unbind();
         graphConsumers.unbind();
-        graphDependentWeak.unbind();
-        graphBeDependentWeak.unbind();
-        graphDependentStrong.unbind();
-        graphBeDependentStrong.unbind();
+        graphDependencyStrong.unbind();
+        graphSubordinateStrong.unbind();
+        graphDependencyWeak.unbind();
+        graphSubordinateWeak.unbind();
 
         healthJson.empty();
         metricsJson.empty();
@@ -867,10 +867,7 @@ function BuildGraph(data) {
         // Close button
         cardClose.on("click", function() {
             clearHighlight();
-            cardHeader.removeClass("show");
-            nodeInfoBody.removeClass("show");
-            nodeMonitorBody.removeClass("show");
-            card.removeClass("show");
+            cardDiv.removeClass("show");
         });
 
         // Card header
@@ -942,11 +939,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphDependentWeak.on("click", function () {
+        graphDependencyStrong.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/dependent-chain/weak/" + d.id)
+                fetch("/web-page/graph/strong-dependent-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -957,11 +954,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphBeDependentWeak.on("click", function () {
+        graphDependencyWeak.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/be-dependent-chain/weak/" + d.id)
+                fetch("/web-page/graph/weak-dependent-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -972,11 +969,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphDependentStrong.on("click", function () {
+        graphSubordinateStrong.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/dependent-chain/strong/" + d.id)
+                fetch("/web-page/graph/strong-subordinate-chain//" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -987,11 +984,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphBeDependentStrong.on("click", function () {
+        graphSubordinateWeak.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/be-dependent-chain/strong/" + d.id)
+                fetch("/web-page/graph/weak-subordinate-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -1018,13 +1015,7 @@ function BuildGraph(data) {
         }
 
         // Show
-        if (!card.hasClass("show")) {
-            cardHeader.addClass("show");
-            nodeInfoBody.addClass("show");
-            nodeGraphBody.addClass("show");
-            nodeMonitorBody.addClass("show");
-            card.addClass("show");
-        }
+        cardDiv.addClass("show");
     }
 
 }

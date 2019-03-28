@@ -1,3 +1,4 @@
+let toast = $('.toast');
 let stompClient = null;
 
 $(document).ready( function () {
@@ -21,7 +22,10 @@ function connectSocket() {
     let socket = new SockJS("/mgp-websocket");
     stompClient = Stomp.over(socket);
     stompClient.connect({}, function (frame) {
-       console.log("Connected: " + frame);
+        toast.find("strong").empty().append("Connected");
+        toast.find(".toast-body").empty().append("Successfully connected to the MGP service!");
+        toast.toast('show');
+        console.log("Connected: " + frame);
     });
 }
 
@@ -34,7 +38,12 @@ function startGraph(systemName) {
         } else {
             graph.updateData(data);
         }
-
+    });
+    stompClient.subscribe("/topic/notification/" + systemName.value, function (message) {
+        let data = JSON.parse(message.body);
+        toast.find("strong").empty().append(data.title);
+        toast.find(".toast-body").empty().append(data.content);
+        toast.toast('show');
     });
     stompClient.send("/mgp/graph/" + systemName.value);
     $("#systemsDropdownMenuButton").text(systemName.value);
