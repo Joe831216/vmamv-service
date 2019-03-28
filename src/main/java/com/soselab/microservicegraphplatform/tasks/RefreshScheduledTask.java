@@ -66,9 +66,8 @@ public class RefreshScheduledTask {
 
     @Scheduled(fixedDelay = 10000)
     public void run() {
-        //refreshGraphDB();
-        Map<String, Boolean> updated = refreshGraphDB();
-        updated.forEach((systemName, isUpdated) -> {
+        Map<String, Boolean> systemIsUpdatedMap = updateGraphDB();
+        systemIsUpdatedMap.forEach((systemName, isUpdated) -> {
             if (isUpdated) {
                 graphJson.put(systemName, generalRepository.getSystemGraphJson(systemName));
                 webPageController.sendGraph(systemName, graphJson.get(systemName));
@@ -80,7 +79,7 @@ public class RefreshScheduledTask {
         return graphJson.get(systemName);
     }
 
-    private Map<String, Boolean> refreshGraphDB() {
+    private Map<String, Boolean> updateGraphDB() {
         Map<String, Boolean> updated = new HashMap<>();
         // For each service registry
         ArrayList<ServiceRegistry> registries = serviceRegistryRepository.findAll();
@@ -274,6 +273,12 @@ public class RefreshScheduledTask {
                 if (newerPatchService != null) {
                     service.addLabel("OutdatedVersion");
                     service.foundNewPatchVersion(newerPatchService);
+                } else {
+                    List<Service> olderPatchServices = olderPatchVersionDetector(appInfoAndNum.getKey());
+                    for (Service olderPatchService : olderPatchServices) {
+                        serviceRepository.addOutdatedVersionLabelAndDeleteNewrPatchVerRelByAppId(olderPatchService.getAppId());
+                    }
+                    service.foundOldPatchVersions(olderPatchServices);
                 }
                 serviceRepository.save(service);
                 logger.info("Add service: " + service.getAppId());
@@ -405,6 +410,29 @@ public class RefreshScheduledTask {
             }
         }
         return null;
+    }
+
+    private List<Service> olderPatchVersionDetector(MgpApplication mgpApplication) {
+        int[] thisAppVerCode = getVersionCode(mgpApplication.getVersion());
+        List<Service> olderVerServices = new ArrayList<>();
+        if (thisAppVerCode != null) {
+            List<Service> otherVerServices = serviceRepository.findOtherVersInSameSysBySysNameAndAppNameAndVersion
+                    (mgpApplication.getSystemName(), mgpApplication.getAppName(), mgpApplication.getVersion());
+            if (otherVerServices.size() > 0) {
+                for (Service otherVerService : otherVerServices) {
+                    int[] otherAppVerCode = getVersionCode(otherVerService.getVersion());
+                    if (otherAppVerCode != null) {
+                        if (thisAppVerCode[0] == otherAppVerCode [0] && thisAppVerCode[1] == otherAppVerCode[1]) {
+                            if (otherAppVerCode[2] < thisAppVerCode[2]) {
+                                olderVerServices.add(otherVerService);
+                                logger.info("Found older patch version: " + mgpApplication.getAppId() + " -> " + otherVerService.getVersion());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return olderVerServices;
     }
 
     // Get an version number array form a semantic versioning string.
@@ -784,6 +812,7 @@ public class RefreshScheduledTask {
             endpointRepository.deleteUselessNullEndpoint();
             serviceRepository.deleteUselessNullService();
             queueRepository.deleteUselessQueues();
+            serviceRepository.removeUselessOutdatedVersionLabel();
         }
     }
 

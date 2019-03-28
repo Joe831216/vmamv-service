@@ -62,19 +62,19 @@
 			padding-bottom: 15px;
 		}
 
-		.nodes circle {
-			stroke: #fff;
-			stroke-width: 5px;
+		.node {
+			stroke: #ffffff;
+			stroke-width: 3px;
 		}
 
-		.hightlight-node {
+		.highlight.node {
 			stroke: rgba(0, 114, 235, 0.7);
-			stroke-width: 10;
+			stroke-width: 10px;
 		}
 
-        .warning-node {
+        .warning.node {
             stroke: rgba(255, 165, 0, 0.7);
-            stroke-width: 10;
+            stroke-width: 10px;
         }
 
 		.links line {
@@ -83,11 +83,18 @@
 			stroke-opacity: 1;
 		}
 
-		.hightlight-link line {
+		.links text {
+			text-anchor: middle;
+			fill: #555;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 8px;
+		}
+
+		.highlight line {
 			stroke: rgba(0, 114, 235, 0.7);
 		}
 
-        .warning-link line {
+        .warning line {
             stroke: rgba(255, 165, 0, 0.7);
         }
 
@@ -99,36 +106,25 @@
 			font-size: 12px;
 		}
 
-		.links text {
-			text-anchor: middle;
-			fill: #555;
-			font-family: Arial, Helvetica, sans-serif;
-			font-size: 8px;
-		}
-
-		.arrow-normal {
+		.normal.arrow {
 			stroke-width: 0;
 			stroke: #d6d6d6;
 			fill: #d6d6d6;
 		}
 
-		.arrow-warning {
+		.highlight.arrow {
+			stroke-width: 0;
+			stroke: #0072EB;
+			fill: #0072EB;
+		}
+
+		.warning.arrow {
 			stroke-width: 0;
 			stroke: orange;
 			fill: orange;
 		}
 
-		.hightlight {
-			filter: brightness(125%);
-		}
-
 	</style>
-	<!--
-	<script defer src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-	<script defer src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>
-	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
-	<script defer src="//code.jquery.com/jquery-2.1.3.min.js"></script>
-	-->
 	<script src="/webjars/sockjs-client/sockjs.min.js"></script>
 	<script src="/webjars/stomp-websocket/stomp.min.js"></script>
 	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
@@ -151,7 +147,7 @@
 		<defs>
 			<marker
 					id="arrow-m"
-					class="arrow-normal"
+					class="arrow normal"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"
@@ -162,7 +158,29 @@
 			</marker>
 			<marker
 					id="arrow-l"
-					class="arrow-normal"
+					class="arrow normal"
+					markerWidth="10"
+					markerHeight="10"
+					viewBox="0 0 10 10"
+					refX="22"
+					refY="6"
+					orient="auto">
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
+			</marker>
+			<marker
+					id="arrow-m-highlight"
+					class="arrow highlight"
+					markerWidth="10"
+					markerHeight="10"
+					viewBox="0 0 10 10"
+					refX="17"
+					refY="6"
+					orient="auto">
+				<path d="M2,2 L10,6 L2,10 L6,6 L2,2"></path>
+			</marker>
+			<marker
+					id="arrow-l-highlight"
+					class="arrow highlight"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"
@@ -173,7 +191,7 @@
 			</marker>
 			<marker
 					id="arrow-m-warning"
-					class="arrow-warning"
+					class="arrow warning"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"
@@ -184,7 +202,7 @@
 			</marker>
 			<marker
 					id="arrow-l-warning"
-					class="arrow-warning"
+					class="arrow warning"
 					markerWidth="10"
 					markerHeight="10"
 					viewBox="0 0 10 10"

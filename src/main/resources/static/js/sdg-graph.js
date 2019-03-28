@@ -245,11 +245,39 @@ function BuildGraph(data) {
             .remove();
 
         // UPDATE old links
-        link.filter(d => !d.highlight)
-            .classed("hightlight-link", false);
+        link.transition(t);
 
+        link.filter(d => !d.highlight)
+            .classed("highlight", false)
+            .selectAll("line")
+            .attr("marker-end", d => {
+                if (d.type === REL_HTTPREQUEST || d.type === REL_AMQPPUBLISH || d.type === REL_AMQPSUBSCRIBE) {
+                    if (d.target.labels.includes(LABEL_SERVICE) || d.target.labels.includes(LABEL_QUEUE)) {
+                        return"url(#arrow-l)"
+                    } else {
+                        return "url(#arrow-m)";
+                    }
+                } else if (d.type === REL_NEWERPATCHVERSION) {
+                    return"url(#arrow-l-warning)"
+                }
+            });
         link.filter(d => d.highlight)
-            .classed("hightlight-link", true);
+            .classed("highlight", true)
+            .selectAll("line")
+            .attr("marker-end", d => {
+                if (d.type === REL_HTTPREQUEST || d.type === REL_AMQPPUBLISH || d.type === REL_AMQPSUBSCRIBE) {
+                    if (d.target.labels.includes(LABEL_SERVICE) || d.target.labels.includes(LABEL_QUEUE)) {
+                        return"url(#arrow-l-highlight)"
+                    } else {
+                        return "url(#arrow-m-highlight)";
+                    }
+                } else if (d.type === REL_NEWERPATCHVERSION) {
+                    return"url(#arrow-l-warning)"
+                }
+            });
+
+        link.filter(d => !(d.type === REL_NEWERPATCHVERSION)).classed("warning", false);
+        link.filter(d => d.type === REL_NEWERPATCHVERSION).classed("warning", true);
 
         // ENTER new links
         let linkEnter = link.enter().append("g");
@@ -266,16 +294,10 @@ function BuildGraph(data) {
                 } else if (d.type === REL_NEWERPATCHVERSION) {
                     return"url(#arrow-l-warning)"
                 }
-            })/*
-            .style("stroke", d => {
-                if (d.type === REL_NEWERPATCHVERSION) {
-                    return COLOR_WARNING;
-                }
-            })*/
+            })
             .call(function(link) { link.transition(td).attr("stroke-width", 3); });
 
-        linkEnter.filter(d => d.type === REL_NEWERPATCHVERSION)
-            .classed("warning-link", true);
+        linkEnter.filter(d => d.type === REL_NEWERPATCHVERSION).classed("warning", true);
 
         linkEnter.filter(d => { return d.type !== REL_OWN })
             .append("text")
@@ -309,11 +331,11 @@ function BuildGraph(data) {
         // UPDATE old nodes
         node.transition(t);
 
-        node.filter(d => { return !d.highlight})
-            .classed("hightlight-node", false);
+        node.filter(d => !d.highlight).classed("highlight", false);
+        node.filter(d => d.highlight).classed("highlight", true);
 
-        node.filter(d => { return d.highlight})
-            .classed("hightlight-node", true);
+        node.filter(d => !d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", false);
+        node.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", true);
 
         node.attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
@@ -327,6 +349,7 @@ function BuildGraph(data) {
 
         // ENTER new nodes
         let nodeEnter = node.enter().append("path")
+            .attr("class", "node")
             .attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
                     return COLOR_NULL;
@@ -335,26 +358,11 @@ function BuildGraph(data) {
                 } else {
                     return color(d.appName);
                 }
-            })/*
-            .attr("stroke", d => {
-                if (d.labels.includes(LABEL_OUTDATEDVERSION)) {
-                    return "orange";
-                } else {
-                    return "white";
-                }
             })
-            .attr("stroke-width", d => {
-                if (d.labels.includes(LABEL_OUTDATEDVERSION)) {
-                    return 3;
-                } else {
-                    return 1.5;
-                }
-            })*/
             .attr("stroke-opacity", 0)
             .attr("fill-opacity", 0);
 
-        nodeEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION))
-            .classed("warning-node", true);
+        nodeEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", true);
 
         nodeEnter.filter(d => d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT))
             .attr("d", d3.symbol()

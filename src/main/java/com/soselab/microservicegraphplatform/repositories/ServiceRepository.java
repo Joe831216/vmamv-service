@@ -56,6 +56,11 @@ public interface ServiceRepository extends Neo4jRepository<Service, Long> {
             "DELETE r1, r2")
     void deleteDependencyByAppId(@Param("appId") String appId);
 
+    @Query("MATCH (s:Service {appId:{appId}})" +
+            "OPTIONAL MATCH (s)-[r:NEWER_PATCH_VERSION]->() " +
+            "SET s:OutdatedVersion DELETE r")
+    void addOutdatedVersionLabelAndDeleteNewrPatchVerRelByAppId(@Param("appId") String appId);
+
     @Query("MATCH (s:NullService {appId:{appId}}) REMOVE s:NullService")
     void removeNullLabelByAppId(@Param("appId") String appId);
 
@@ -68,6 +73,9 @@ public interface ServiceRepository extends Neo4jRepository<Service, Long> {
             "RETURN count(s)>0 as result ")
     boolean removeNullLabelAndSetVerAndNumByAppId(@Param("noVerAppId") String noVerAppId, @Param("appId") String appId,
                                                   @Param("ver") String version, @Param("num") int num);
+
+    @Query("MATCH (s:OutdatedVersion) WHERE NOT (s)-[:NEWER_PATCH_VERSION]->() REMOVE s:OutdatedVersion")
+    void removeUselessOutdatedVersionLabel();
 
     @Query("MATCH (m:Service {appId: {appId}}) " +
             "OPTIONAL MATCH (m)-[:OWN]->(e:Endpoint) " +

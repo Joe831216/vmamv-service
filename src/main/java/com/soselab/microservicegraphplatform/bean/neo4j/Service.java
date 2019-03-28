@@ -170,4 +170,21 @@ public class Service {
         newerPatchVersion = service;
     }
 
+    @Relationship(type = "NEWER_PATCH_VERSION", direction = Relationship.INCOMING)
+    private Set<Service> olderPatchVersion;
+
+    public void foundOldPatchVersion(Service service) {
+        if (olderPatchVersion == null) {
+            olderPatchVersion = new HashSet<>();
+        }
+        olderPatchVersion.add(service);
+    }
+
+    public void foundOldPatchVersions(List<Service> service) {
+        if (olderPatchVersion == null) {
+            olderPatchVersion = new HashSet<>();
+        }
+        olderPatchVersion.addAll(service);
+    }
+
 }
