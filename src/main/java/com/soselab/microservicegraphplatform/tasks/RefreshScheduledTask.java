@@ -3,14 +3,11 @@ package com.soselab.microservicegraphplatform.tasks;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Ints;
-import com.soselab.microservicegraphplatform.bean.actuators.Info;
-import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
-import com.soselab.microservicegraphplatform.bean.eureka.AppList;
+import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.*;
-import com.soselab.microservicegraphplatform.bean.eureka.Application;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
 import com.soselab.microservicegraphplatform.bean.neo4j.Queue;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
@@ -27,7 +24,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.PostConstruct;
-import java.io.IOException;
 import java.util.*;
 
 @Configuration
@@ -49,6 +45,8 @@ public class RefreshScheduledTask {
     private QueueRepository queueRepository;
     @Autowired
     private WebPageController webPageController;
+    @Autowired
+    private EurekaAndServicesRestTool eurekaAndServicesRestTool;
 
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
@@ -57,12 +55,11 @@ public class RefreshScheduledTask {
 
     @PostConstruct
     private void init() {
-        // Different sub system should have their own graph json.
+        // Store the graph json of each systems at a Map as cache.
         List<String> systemNames = generalRepository.getAllSystemName();
         for (String systemName : systemNames) {
             graphJson.put(systemName, generalRepository.getSystemGraphJson(systemName));
         }
-        //graphJson = generalRepository.getGraphJson();
     }
 
     @Scheduled(fixedDelay = 10000)
@@ -94,7 +91,8 @@ public class RefreshScheduledTask {
                     try {
                         String url = "http://" + instance.getIpAddr() + ":" + instance.getPort() + "/eureka/apps/";
                         AppsList eurekaAppsList = restTemplate.getForObject(url, AppsList.class);
-                        Map<String, Pair<MgpApplication, Integer>> eurekaAppsInfoAndNum = getAppsInfoAndNumFromEurekaAppList(systemName, eurekaAppsList);
+                        Map<String, Pair<MgpApplication, Integer>> eurekaAppsInfoAndNum =
+                                eurekaAndServicesRestTool.getAppsInfoAndNumFromEurekaAppList(systemName, eurekaAppsList);
                         List<Service> ServicesInDB = serviceRepository.findBySysName(serviceRegistry.getSystemName());
                         List<NullService> nullServiceInDB = serviceRepository.findNullBySysName(serviceRegistry.getSystemName());
                         // Check the service should be created or updated or removed in graph DB.
@@ -208,82 +206,6 @@ public class RefreshScheduledTask {
         return updated;
     }
 
-    // Map<appId, Pair<appInfo, number of apps>>
-    private Map<String, Pair<MgpApplication, Integer>> getAppsInfoAndNumFromEurekaAppList(String systemName, AppsList appsList) {
-        Map<String, Pair<MgpApplication, Integer>> appInfoAndNum = new HashMap<>();
-        ArrayList<Application> apps = appsList.getApplications().getApplication();
-        for (Application app: apps) {
-            String appName = app.getName();
-            for (AppInstance instance: app.getInstance()) {
-                if (instance.getStatus().equals("UP")) {
-                    String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
-                    String version = getVersionFromRemoteApp(url);
-                    // Ignore this service if can't get the version.
-                    if (version == null) {
-                        continue;
-                    }
-                    String appId = systemName + ":" + appName + ":" + version;
-                    Pair<MgpApplication, Integer> appInfo= appInfoAndNum.get(appId);
-                    if (appInfo == null) {
-                        MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
-                        MgpApplication mgpApplication = new MgpApplication(systemName, appName, version, new ArrayList<>());
-                        mgpApplication.addInstance(mgpInstance);
-                        appInfo = new MutablePair<>(mgpApplication, 1);
-                        appInfoAndNum.put(appId, appInfo);
-                    } else {
-                        appInfo.setValue(appInfo.getValue() + 1);
-                        appInfoAndNum.put(appId, appInfo);
-                    }
-                } /*else if (instance.getStatus().equals("DOWN")){
-                    // Do something when found a "DOWN" service.
-                }*/
-            }
-        }
-
-        return appInfoAndNum;
-    }
-
-    private MgpApplication getAppFromEureka(ServiceRegistry serviceRegistry, String appName, String version) {
-        List<Instance> registryInstance = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
-        String registryUrl = "http://" + registryInstance.get(0).getIpAddr() + ":" + registryInstance.get(0).getPort() + "/eureka/apps/" + appName;
-        AppList eurekaApp = restTemplate.getForObject
-                (registryUrl, AppList.class);
-        MgpApplication mgpApplication = null;
-        for (AppInstance instance: eurekaApp.getApplication().getInstance()) {
-            if (instance.getStatus().equals("UP")) {
-                String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
-                String ver = restTemplate.getForObject( url + "/info", Info.class).getVersion();
-                if (ver.equals(version)) {
-                    MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
-                    mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
-                    mgpApplication.addInstance(mgpInstance);
-                }
-            }
-        }
-
-        return mgpApplication;
-    }
-
-    private String getVersionFromRemoteApp(String serviceUrl) {
-        try {
-            return restTemplate.getForObject( serviceUrl + "/info", Info.class).getVersion();
-        } catch (ResourceAccessException e) {
-            logger.error(e.getMessage(), e);
-            return null;
-        }
-    }
-
-    private Map<String, Object> getSwaggerMapFromRemoteApp(String serviceUrl) {
-        String swagger = restTemplate.getForObject(serviceUrl + "/v2/api-docs", String.class);
-        Map<String, Object> swaggerMap = null;
-        try {
-            swaggerMap = mapper.readValue(swagger, new TypeReference<Map<String, Object>>(){});
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-        return swaggerMap;
-    }
-
     // Add new apps to neo4j
     private Map<String, Map<String, Object>> addServices(ServiceRegistry serviceRegistry, Map<String, Pair<MgpApplication, Integer>> newAppsMap) {
         Map<String, Map<String, Object>> appSwaggers = new HashMap<>();
@@ -293,7 +215,7 @@ public class RefreshScheduledTask {
         newAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
+            Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 MgpApplication app = appInfoAndNum.getKey();
@@ -341,11 +263,12 @@ public class RefreshScheduledTask {
         if (noVerNullApp != null) {
             List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(noVerNullApp.getAppId());
             for (Service dependentApp : dependentApps) {
-                MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
+                MgpApplication appInfo = eurekaAndServicesRestTool.getAppFromEureka
+                        (serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
                 String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                 int port = appInfo.getInstances().get(0).getPort();
                 String serviceUrl = "http://" + ipAddr + ":" + port;
-                Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
+                Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
                 updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
             }
         } else {
@@ -355,11 +278,12 @@ public class RefreshScheduledTask {
                 List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(otherVerApp.getAppId());
                 if (dependentApps != null) {
                     for (Service dependentApp : dependentApps) {
-                        MgpApplication appInfo = getAppFromEureka(serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
+                        MgpApplication appInfo = eurekaAndServicesRestTool.getAppFromEureka
+                                (serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
                         String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                         int port = appInfo.getInstances().get(0).getPort();
                         String serviceUrl = "http://" + ipAddr + ":" + port;
-                        Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
+                        Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
                         if (swaggerMap != null) {
                             Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
                             if (dependencyMap.get("httpRequest") != null) {
@@ -527,7 +451,7 @@ public class RefreshScheduledTask {
         recoveryAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = getSwaggerMapFromRemoteApp(serviceUrl);
+            Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 //String noVerAppId = appInfoAndNum.getKey().getSystemName() + ":" + appInfoAndNum.getKey().getAppName() + ":null";

@@ -1,4 +1,4 @@
-let toast = $('.toast');
+let toast = $(".toast");
 let stompClient = null;
 
 $(document).ready( function () {
