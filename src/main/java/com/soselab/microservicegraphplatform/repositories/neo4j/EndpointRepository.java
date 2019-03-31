@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform.repositories;
+package com.soselab.microservicegraphplatform.repositories.neo4j;
 
 import com.soselab.microservicegraphplatform.bean.neo4j.Endpoint;
 import com.soselab.microservicegraphplatform.bean.neo4j.NullEndpoint;

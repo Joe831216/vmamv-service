@@ -11,7 +11,7 @@ import com.soselab.microservicegraphplatform.bean.neo4j.*;
 import com.soselab.microservicegraphplatform.bean.eureka.AppsList;
 import com.soselab.microservicegraphplatform.bean.neo4j.Queue;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
-import com.soselab.microservicegraphplatform.repositories.*;
+import com.soselab.microservicegraphplatform.repositories.neo4j.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;

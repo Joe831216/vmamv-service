@@ -845,7 +845,8 @@ function BuildGraph(data) {
         let nodeMonitorBody = $("#node-monitor .card-body").first();
         let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
         let healthJson = $("#health-json");
-        let metricsJson = $("#metrics-json");
+        let metricsActuratorJson = $("#metrics-actuator-json");
+        let metricsElasticsearchJson = $("#metrics-elasticsearch-json");
 
         // init
         clearHighlight();
@@ -862,7 +863,8 @@ function BuildGraph(data) {
         graphSubordinateWeak.unbind();
 
         healthJson.empty();
-        metricsJson.empty();
+        metricsActuratorJson.empty();
+        metricsElasticsearchJson.empty();
 
         // Close button
         cardClose.on("click", function() {
@@ -1010,7 +1012,13 @@ function BuildGraph(data) {
             fetch("http://" + host + "/metrics")
                 .then(response => response.json())
                 .then(json => {
-                    metricsJson.jsonViewer(json, {collapsed: true, withQuotes: false});
+                    metricsActuratorJson.jsonViewer(json, {collapsed: true, withQuotes: false});
+                });
+
+            fetch("/web-page/app/metrics/" + d.appId)
+                .then(response => response.json())
+                .then(json => {
+                    metricsElasticsearchJson.jsonViewer(json, {collapsed: true, withQuotes: false});
                 });
         }
 

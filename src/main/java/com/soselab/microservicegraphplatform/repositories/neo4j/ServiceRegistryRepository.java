@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform.repositories;
+package com.soselab.microservicegraphplatform.repositories.neo4j;
 
 import com.soselab.microservicegraphplatform.bean.neo4j.ServiceRegistry;
 import org.springframework.data.neo4j.annotation.Query;
