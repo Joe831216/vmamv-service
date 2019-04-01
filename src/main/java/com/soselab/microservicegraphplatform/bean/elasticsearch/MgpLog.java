@@ -8,7 +8,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import java.sql.Date;
 
 @Document(indexName = "*", type = "doc", createIndex = false)
-public class HttpRequestAndResponseLog {
+public class MgpLog {
     @Id
     private String id;
 
@@ -30,10 +30,10 @@ public class HttpRequestAndResponseLog {
     //@JsonDeserialize
     private String message;
 
-    public HttpRequestAndResponseLog() {
+    public MgpLog() {
     }
 
-    public HttpRequestAndResponseLog(String host, String level, Date timestamp, String loggerName, int levelValue, String systemName, String threadName, int port, String appName, String version, String message) {
+    public MgpLog(String host, String level, Date timestamp, String loggerName, int levelValue, String systemName, String threadName, int port, String appName, String version, String message) {
         this.host = host;
         this.level = level;
         this.timestamp = timestamp;

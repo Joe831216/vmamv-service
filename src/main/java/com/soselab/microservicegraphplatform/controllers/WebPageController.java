@@ -3,12 +3,10 @@ package com.soselab.microservicegraphplatform.controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
-import com.soselab.microservicegraphplatform.LogMonitor;
-import com.soselab.microservicegraphplatform.bean.elasticsearch.HttpRequestAndResponseLog;
+import com.soselab.microservicegraphplatform.LogAnalyzer;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.repositories.neo4j.GeneralRepository;
-import com.soselab.microservicegraphplatform.repositories.elasticsearch.HttpRequestAndResponseRepository;
 import com.soselab.microservicegraphplatform.tasks.RefreshScheduledTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +35,7 @@ public class WebPageController {
     @Autowired
     private EurekaAndServicesRestTool eurekaAndServicesRestTool;
     @Autowired
-    private LogMonitor logMonitor;
+    private LogAnalyzer logAnalyzer;
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
     @Autowired
@@ -93,9 +91,9 @@ public class WebPageController {
     }
 
     @GetMapping("/app/metrics/{appId}")
-    public AppMetrics elTest(@PathVariable("appId") String appId) {
+    public AppMetrics getMetrics(@PathVariable("appId") String appId) {
         String[] appInfo = appId.split(":");
-        return new AppMetrics(logMonitor.getAverageResponseDuration(appInfo[0], appInfo[1], appInfo[2]));
+        return logAnalyzer.getMetrics(appInfo[0], appInfo[1], appInfo[2]);
     }
 
     @MessageMapping("/graph/{systemName}")

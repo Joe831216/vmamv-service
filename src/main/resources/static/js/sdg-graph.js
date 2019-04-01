@@ -361,6 +361,10 @@ function BuildGraph(data) {
             .attr("stroke-opacity", 0)
             .attr("fill-opacity", 0);
 
+        nodeEnter.transition(td)
+            .attr("stroke-opacity", 1)
+            .attr("fill-opacity", 1);
+
         nodeEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", true);
 
         nodeEnter.filter(d => d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT))
@@ -404,10 +408,6 @@ function BuildGraph(data) {
                     return LABEL_QUEUE;
                 }
             });
-
-        nodeEnter.transition(td)
-            .attr("stroke-opacity", 1)
-            .attr("fill-opacity", 1);
 
 
         node = nodeEnter.merge(node);
@@ -895,7 +895,7 @@ function BuildGraph(data) {
 
         // Info tab
         if (d.labels.includes(LABEL_ENDPOINT)) {
-        } else if (d.labels.includes(LABEL_SERVICE)) {
+        } else if (d.labels.includes(LABEL_SERVICE) && !d.labels.includes(LABEL_NULLSERVICE)) {
             fetch("/web-page/app/swagger/" + d.appId)
                 .then(response => response.json())
                 .then(json => {
