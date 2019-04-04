@@ -1,6 +1,4 @@
 function BuildGraph(data) {
-    this.data = data;
-
     const LABEL_SERVICE = "Service";
     const LABEL_NULLSERVICE = "NullService";
     const LABEL_ENDPOINT = "Endpoint";
@@ -32,6 +30,11 @@ function BuildGraph(data) {
     const COLOR_WARNING = "orange";
 
     const NODE_SCALE = 1.5;
+
+    this.data = data;
+    let collapseData = createCollapseData(data);
+    let emptyData = {nodes: [], links: []};
+    let graphData = data;
 
     let canvas = document.getElementById("canvas");
 
@@ -97,7 +100,52 @@ function BuildGraph(data) {
 
     let enterOrExitEvent = true;
 
-    update();
+    update(graphData);
+
+    function createCollapseData (d) {
+        let collapseData = $.extend(true, {}, d);
+
+        collapseData.nodes.filter(node => node.labels.includes(LABEL_SERVICE))
+            .forEach(service => {
+            collapseData.links.filter(link => (link.source === service.id) && (link.type === REL_OWN))
+                .forEach(own => {
+                    collapseData.links.filter(link => link.source === own.target)
+                        .forEach(link => link.source = service.id);
+                    collapseData.links.filter(link => (link.target === own.target) && (link.type !== REL_OWN))
+                        .forEach(link => link.target = service.id);
+            });
+        });
+
+        collapseData.nodes = collapseData.nodes.filter(node => !node.labels.includes(LABEL_ENDPOINT));
+        collapseData.links = collapseData.links.filter(link => link.type !== REL_OWN);
+
+        return collapseData;
+    }
+
+    function initCollapseData() {
+        data.nodes.filter(node => node.labels.includes(LABEL_SERVICE))
+            .forEach(service => {
+                data.links.filter(link => (link.source === service.id) && (link.type === REL_OWN))
+                    .forEach(own => {
+                        data.links.filter(link => link.source === own.target)
+                            .forEach(link => {
+                                link.canBeCollapse = true;
+                                let collapseOnlyLink = $.extend(true, {}, link);
+                                collapseOnlyLink.source = service.id;
+                                collapseOnlyLink.collapseOnly = true;
+                                data.links.push(collapseOnlyLink);
+                            });
+                        data.links.filter(link => (link.target === own.target) && (link.type !== REL_OWN))
+                            .forEach(link => {
+                                link.canBeCollapse = true;
+                                let collapseOnlyLink = $.extend(true, {}, link);
+                                collapseOnlyLink.target = service.id;
+                                collapseOnlyLink.collapseOnly = true;
+                                data.links.push(collapseOnlyLink);
+                            });
+                    });
+            });
+    }
 
     this.updateData = function (d) {
         let oldData = $.extend(true, {}, data);
@@ -183,28 +231,94 @@ function BuildGraph(data) {
                 enterOrExitEvent = true;
             }
         });
-        update();
+
+        updateCollapseData(d);
+        update(graphData);
     };
+
+    function updateCollapseData (d) {
+        if (collapseData.links.length > 0 && !collapseData.links[0].source.hasOwnProperty("id")) {
+            // If collapseData has not been init by D3.js yet.
+            collapseData = createCollapseData(d);
+            console.log(collapseData);
+            console.log("274")
+        } else {
+            console.log("276");
+            let newCollapseData = createCollapseData(d);
+
+            // REMOVE old nodes
+            collapseData.nodes = collapseData.nodes.filter(oldNode =>
+                newCollapseData.nodes.find(newNode => oldNode.id === newNode.id)
+            );
+
+            // UPDATE old nodes
+            collapseData.nodes.forEach(oldNode => {
+                let newNode = newCollapseData.nodes.find(node => node.id === oldNode.id);
+                if (JSON.stringify(oldNode.labels.sort()) !== JSON.stringify(newNode.labels.sort())) {
+                    oldNode.labels = newNode.labels;
+                }
+                if (oldNode.number !== newNode.number) {
+                    oldNode.number = newNode.number;
+                }
+            });
+
+            // ADD new nodes
+            newCollapseData.nodes.forEach(newNode => {
+                if (!collapseData.nodes.find(oldNode => newNode.id === oldNode.id)) {
+                    collapseData.nodes.push(newNode);
+                }
+            });
+
+            // REMOVE old links
+            collapseData.links = collapseData.links.filter(oldLink =>
+                newCollapseData.links.find(newLink =>
+                    (oldLink.type === newLink.type) &&
+                    (oldLink.source.id === newLink.source) &&
+                    (oldLink.target.id === newLink.target))
+            );
+
+            // ADD new links
+            newCollapseData.links.forEach(newLink => {
+                if (!collapseData.links.find(oldLink =>
+                    (oldLink.type === newLink.type) &&
+                    (oldLink.source.id === newLink.source) &&
+                    (oldLink.target.id === newLink.target))) {
+                    collapseData.links.push(newLink);
+                }
+            });
+        }
+    }
 
     function highlight(d) {
         data.nodes.forEach(node => { node.highlight = false });
         data.links.forEach(link => { link.highlight = false });
+        collapseData.nodes.forEach(node => { node.highlight = false });
+        collapseData.links.forEach(link => { link.highlight = false });
 
         d.nodes.forEach(HNode => {
             findNodeById(HNode.id).highlight = true;
+            let colNode = collapseData.nodes.find(node => node.id === HNode.id);
+            if (colNode) colNode.highlight = true;
         });
 
         d.links.forEach(HLink => {
             findLinkById(HLink.type + ":" + HLink.source + "-" + HLink.target).highlight = true;
+            let colLink = collapseData.links.find(link =>
+                link.type === HLink.type &&
+                link.source.id === HLink.source &&
+                link.target.id === HLink.target);
+            if (colLink) colLink.highlight = true;
         });
 
-        update();
+        update(graphData);
     }
 
     function clearHighlight() {
         data.nodes.forEach(node => { node.highlight = false });
         data.links.forEach(link => { link.highlight = false });
-        update();
+        collapseData.nodes.forEach(node => { node.highlight = false });
+        collapseData.links.forEach(link => { link.highlight = false });
+        update(graphData);
     }
 
     function findNodeById(id) {
@@ -229,9 +343,15 @@ function BuildGraph(data) {
         return result;
     }
 
-    function update() {
+    function update(data) {
         //console.log(data);
         console.log("update");
+        /*
+        let nodes = collapse ? data.nodes.filter(node => !node.labels.includes(LABEL_ENDPOINT)) : data.nodes;
+        let links = collapse ? data.links.filter(link =>
+            !link.canBeCollapse || link.collapseOnly) : data.links.filter(link => !link.collapseOnly);
+        console.log(links);
+        */
 
         simulation.nodes(data.nodes);
         simulation.force("link").links(data.links);
@@ -835,6 +955,7 @@ function BuildGraph(data) {
 
         let nodeGraphBody = $("#node-graph .card-body").first();
         let graphList = $("#graph-list");
+        let graphCollapse = $("#graph-collapse");
         let graphProvider = $("#graph-providers");
         let graphConsumers = $("#graph-consumers");
         let graphDependencyStrong = $("#graph-dependency-strong");
@@ -855,6 +976,7 @@ function BuildGraph(data) {
         nodeInfoBody.empty();
 
         graphList.find(".active").removeClass("active");
+        graphCollapse.unbind();
         graphProvider.unbind();
         graphConsumers.unbind();
         graphDependencyStrong.unbind();
@@ -911,6 +1033,22 @@ function BuildGraph(data) {
         }
 
         // Graph tab
+        graphCollapse.on("click", function () {
+            if (!$(this).hasClass("active")) {
+                $(this).parent().find(".active").removeClass("active");
+                $(this).addClass("active");
+                graphData = collapseData;
+                update(emptyData);
+                update(graphData);
+            } else {
+                $(this).removeClass("active");
+                clearHighlight();
+                graphData = data;
+                update(emptyData);
+                update(graphData);
+            }
+        });
+
         graphProvider.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
