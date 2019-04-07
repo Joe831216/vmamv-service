@@ -247,14 +247,17 @@
 					<h5 class="card-title"></h5>
 					<ul class="nav nav-tabs card-header-tabs" role="tablist">
 						<li class="nav-item">
-							<a id="information-tab" class="nav-link active" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="true">Infomation</a>
+							<a id="information-tab" class="nav-link collapse" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="false">Infomation</a>
 						</li>
 						<li class="nav-item">
-							<a id="node-graph-tab" class="nav-link" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">Graph</a>
+							<a id="graph-tab" class="nav-link collapse" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">Graph</a>
 						</li>
 						<li class="nav-item">
-							<a id="monitor-tab" class="nav-link" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">Monitor</a>
+							<a id="monitor-tab" class="nav-link collapse" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">Monitor</a>
 						</li>
+                        <li class="nav-item">
+                            <a id="alert-tab" class="nav-link collapse" href="#node-alert" data-toggle="tab" tole="tab" aria-controls="node-alert" aria-selected="false">Alert</a>
+                        </li>
 					</ul>
 				</div>
 				<div class="tab-content">
@@ -280,14 +283,41 @@
 					<div id="node-monitor" class="tab-pane fade" role="tabpanel" aria-labelledby="monitor-tab">
 						<div class="card-body">
 							<h5 class="card-title"></h5>
-							<h6 class="card-title">Health</h6>
+							<h6 class="card-subtitle">Health</h6>
 							<pre id="health-json"></pre>
-							<h6 class="card-title">Metrics (Spring Actuator)</h6>
+							<h6 class="card-subtitle">Metrics (Spring Actuator)</h6>
 							<pre id="metrics-actuator-json"></pre>
-                            <h6 class="card-title">Metrics (Elasticsearch)</h6>
+                            <h6 class="card-subtitle">Metrics (Elasticsearch)</h6>
                             <pre id="metrics-elasticsearch-json"></pre>
 						</div>
 					</div>
+                    <div id="node-alert" class="tab-pane fade" role="tabpanel" aria-labelledby="alert-tab">
+                        <div class="card-body">
+                            <h5 class="card-title">Failure alert</h5>
+                            <form class="needs-validation" id="node-setting-form" novalidate>
+                                <h6 class="card-subtitle mt-4 mb-2 text-muted">Thresholds</h6>
+                                <div class="form-group">
+                                    <label for="failure-status-rate">Failure status rate</label>
+                                    <output for="failure-status-rate" id="failure-status-rate-text">100%</output>
+                                    <input name="failureStatusRate" type="range" class="custom-range" id="failure-status-rate" value="100">
+                                    <label for="failure-error-count">Error count (per hours)</label>
+                                    <input name="failureErrorCount" type="number" class="form-control" id="failure-error-count" placeholder="Maximum number of error logs per hours" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <h6 class="card-subtitle mt-4 mb-2 text-muted">Switches</h6>
+                                    <div class="custom-control custom-switch">
+                                        <input name="enableRestFailureAlert" type="checkbox" class="custom-control-input" id="enable-rest-failure-alert">
+                                        <label class="custom-control-label" for="enable-rest-failure-alert">Enable failure alert by using Spring Actuator</label>
+                                    </div>
+                                    <div class="custom-control custom-switch">
+                                        <input name="enableLogFailureAlert" type="checkbox" class="custom-control-input" id="enable-log-failure-alert">
+                                        <label class="custom-control-label" for="enable-log-failure-alert">Enable failure alert by using Elasticsearch</label>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" type="submit" id="node-setting-submit">Save</button>
+                            </form>
+                        </div>
+                    </div>
 				</div>
 			</div>
 		</div>

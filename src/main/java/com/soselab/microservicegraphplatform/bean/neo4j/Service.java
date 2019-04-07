@@ -187,4 +187,16 @@ public class Service {
         olderPatchVersion.addAll(service);
     }
 
+    @Relationship(type = "MGP_CONFIG", direction = Relationship.OUTGOING)
+    private Setting setting;
+
+    public Setting getSetting() {
+        return setting;
+    }
+
+    public void setSetting(Setting setting) {
+        this.setting = setting;
+    }
+
+
 }

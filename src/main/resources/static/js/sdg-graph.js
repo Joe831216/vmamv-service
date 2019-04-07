@@ -76,10 +76,12 @@ function BuildGraph(data) {
             .distance(180)
             .strength(2))
         .force("charge", d3.forceManyBody()
-            .strength(-2000)
+            .strength(-1000)
             .distanceMax(1000))
-        .force("x", d3.forceX(graphWidth / 2))
-        .force("y", d3.forceY(graphHeight / 2))
+        .force("x", d3.forceX(graphWidth / 2)
+            .strength(0.1))
+        .force("y", d3.forceY(graphHeight / 2)
+            .strength(0.1))
         .force("collision", d3.forceCollide().radius(90).strength(0.7))
         .velocityDecay(0.9)
         .alphaTarget(0.2)
@@ -122,6 +124,7 @@ function BuildGraph(data) {
         return collapseData;
     }
 
+    /*
     function initCollapseData() {
         data.nodes.filter(node => node.labels.includes(LABEL_SERVICE))
             .forEach(service => {
@@ -145,7 +148,7 @@ function BuildGraph(data) {
                             });
                     });
             });
-    }
+    }*/
 
     this.updateData = function (d) {
         let oldData = $.extend(true, {}, data);
@@ -787,7 +790,7 @@ function BuildGraph(data) {
         if (enterOrExitEvent) {
             simulation.alpha(1);
         }
-        simulation.restart();
+        simulation.alphaTarget(0.3).restart();
         enterOrExitEvent = false;
 
     }
@@ -848,7 +851,7 @@ function BuildGraph(data) {
             .scale(scale);
         svg.transition().duration(600).call(zoom.transform, transform);
 
-        openNodeCard(d);
+        openNodeCard(d, d3.event.active);
     }
 
     function dragstarted(d) {
@@ -863,12 +866,15 @@ function BuildGraph(data) {
     }
 
     function dragended(d) {
-        //if (!d3.event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        if (!d3.event.active) simulation.alphaTarget(0);
+        //d.fx = null;
+        //d.fy = null;
     }
 
     function mouseover(d, i) {
+        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = null;
+        d.fy = null;
         if (d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT)) {
             d3.select(this).transition().duration(100)
                 .attr("d", d3.symbol()
@@ -943,31 +949,58 @@ function BuildGraph(data) {
         }
     }
 
-    function openNodeCard(d) {
-        let cardDiv = $("#card-div");
-        let card = $("#node-card");
-        let cardHeader = card.find(".card-header").first();
-        let cardClose = cardHeader.find(".close").first();
-        let cardHeaderTitle = cardHeader.find(".card-title").first();
+    let cardDiv = $("#card-div");
+    let card = $("#node-card");
+    let cardHeader = card.find(".card-header").first();
+    let cardClose = cardHeader.find(".close").first();
+    let cardHeaderTitle = cardHeader.find(".card-title").first();
 
-        let nodeInfoBody = $("#node-infomation .card-body").first();
-        //let nodeInfoTitle = nodeInfoBody.find(".card-title").first();
+    let cardInfoTab = $("#information-tab");
+    let cardGraphTab = $("#graph-tab");
+    let cardMonitorTab = $("#monitor-tab");
+    let cardAlertTab = $("#alert-tab");
 
-        let nodeGraphBody = $("#node-graph .card-body").first();
-        let graphList = $("#graph-list");
-        let graphCollapse = $("#graph-collapse");
-        let graphProvider = $("#graph-providers");
-        let graphConsumers = $("#graph-consumers");
-        let graphDependencyStrong = $("#graph-dependency-strong");
-        let graphDependencyWeak = $("#graph-dependency-weak");
-        let graphSubordinateStrong = $("#graph-subordinate-strong");
-        let graphSubordinateWeak = $("#graph-subordinate-weak");
+    let nodeInfoBody = $("#node-infomation .card-body").first();
+    //let nodeInfoTitle = nodeInfoBody.find(".card-title").first();
 
-        let nodeMonitorBody = $("#node-monitor .card-body").first();
-        let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
-        let healthJson = $("#health-json");
-        let metricsActuratorJson = $("#metrics-actuator-json");
-        let metricsElasticsearchJson = $("#metrics-elasticsearch-json");
+    let nodeGraphBody = $("#node-graph .card-body").first();
+    let graphList = $("#graph-list");
+    let graphCollapse = $("#graph-collapse");
+    let graphProvider = $("#graph-providers");
+    let graphConsumers = $("#graph-consumers");
+    let graphDependencyStrong = $("#graph-dependency-strong");
+    let graphDependencyWeak = $("#graph-dependency-weak");
+    let graphSubordinateStrong = $("#graph-subordinate-strong");
+    let graphSubordinateWeak = $("#graph-subordinate-weak");
+
+    let nodeMonitorBody = $("#node-monitor .card-body").first();
+    let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
+    let healthJson = $("#health-json");
+    let metricsActuratorJson = $("#metrics-actuator-json");
+    let metricsElasticsearchJson = $("#metrics-elasticsearch-json");
+
+    $("#failure-status-rate").on("input", function () {
+        $("#failure-status-rate-text").val(this.value + "%");
+    }).trigger("change");
+
+    let stickNode = null;
+    let stickEvent = null;
+
+    function openNodeCard(d, event) {
+        cardInfoTab.removeClass("show");
+        cardGraphTab.removeClass("show");
+        cardMonitorTab.removeClass("show");
+        cardAlertTab.removeClass("show");
+
+
+        if (d.labels.includes(LABEL_SERVICE) && !d.labels.includes(LABEL_NULLSERVICE)) {
+            cardInfoTab.addClass("show").tab('show');
+            cardGraphTab.addClass("show");
+            cardMonitorTab.addClass("show");
+            cardAlertTab.addClass("show");
+        } else {
+            cardGraphTab.addClass("show").tab('show');
+        }
 
         // init
         clearHighlight();
@@ -988,10 +1021,29 @@ function BuildGraph(data) {
         metricsActuratorJson.empty();
         metricsElasticsearchJson.empty();
 
+        // Release stick node.
+        if (stickNode != null) {
+            if (!stickEvent) simulation.alphaTarget(0.3).restart();
+            stickNode.fx = null;
+            stickNode.fy = null;
+        }
+
+        // Remember currently node as stick node.
+        stickNode = d;
+        stickEvent = event;
+
         // Close button
         cardClose.on("click", function() {
             clearHighlight();
             cardDiv.removeClass("show");
+
+            // Release stick node.
+            if (!event) simulation.alphaTarget(0.3).restart();
+            d.fx = null;
+            d.fy = null;
+
+            stickNode = null;
+            stickEvent = null;
         });
 
         // Card header
@@ -1021,7 +1073,7 @@ function BuildGraph(data) {
             fetch("/web-page/app/swagger/" + d.appId)
                 .then(response => response.json())
                 .then(json => {
-                    nodeInfoBody.append("<a href='http://" + json.host + "/swagger-ui.html' target='_blank'>Swagger UI</a>");
+                    nodeInfoBody.append("<a class='card-subtitle' href='http://" + json.host + "/swagger-ui.html' target='_blank'>Swagger UI</a>");
                     for (let key in json.info) {
                         if (key !== "version" && key !== "title") {
                             nodeInfoBody.append("<h5 class=\"card-title\">" + key.charAt(0).toUpperCase() + key.slice(1) + "</h5>");
@@ -1159,6 +1211,37 @@ function BuildGraph(data) {
                     metricsElasticsearchJson.jsonViewer(json, {collapsed: true, withQuotes: false});
                 });
         }
+
+        // Alert
+        /*
+        $("#node-setting-submit").on("click", function () {
+            let settingData = JSON.stringify($("#node-setting-form").serializeArray());
+            console.log(settingData);
+        });
+        */
+
+        let nodeSettingforms = $("#node-setting-form");
+            // Loop over them and prevent submission
+        let validation = Array.prototype.filter.call(nodeSettingforms, function(form) {
+            form.addEventListener("submit", function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (form.checkValidity() !== false) {
+                    let data = {};
+                    nodeSettingforms.find("input").each((index, input) => {
+                        if (input.name === "failureStatusRate") {
+                            data[input.name] = input.value * 0.01;
+                        } else if (input.type === "checkbox") {
+                            data[input.name] = input.checked;
+                        }else {
+                            data[input.name] = input.value;
+                        }
+                    });
+                    console.log(JSON.stringify(data));
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
 
         // Show
         cardDiv.addClass("show");

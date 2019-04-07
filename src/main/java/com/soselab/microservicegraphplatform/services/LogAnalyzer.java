@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform;
+package com.soselab.microservicegraphplatform.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.bean.elasticsearch.MgpLog;

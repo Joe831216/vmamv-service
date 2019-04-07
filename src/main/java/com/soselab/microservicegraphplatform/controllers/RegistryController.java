@@ -46,7 +46,7 @@ public class RegistryController {
             logger.info("getRemoteAddr: " + request.getRemoteAddr());
             logger.info("getRemotePort: " + request.getRemotePort());
             for (MgpApplication app : registerInfo.getMgpApplications()) {
-                // If this app (service tasks) is not in neo4j then save to neo4j DB
+                // If this app (service services) is not in neo4j then save to neo4j DB
                 String appId = app.getAppId();
                 if (serviceRegistryRepository.findByAppId(appId) == null) {
                     String systemName = app.getSystemName();
@@ -54,7 +54,7 @@ public class RegistryController {
                     String version = app.getVersion();
                     ServiceRegistry serviceRegistry = new ServiceRegistry(systemName, appName, version);
                     serviceRegistryRepository.save(serviceRegistry);
-                    logger.info("Add service tasks: " + appId);
+                    logger.info("Add service services: " + appId);
                 }
                 // Loop the instances
                 for (MgpInstance ins : app.getInstances()) {
@@ -68,7 +68,7 @@ public class RegistryController {
                         Instance instance = new Instance(appName, hostName, ipAddr, port);
                         instance.ownBy(serviceRegistryRepository.findByAppId(appId));
                         instanceRepository.save(instance);
-                        logger.info("Add service tasks instance: " + instanceId);
+                        logger.info("Add service services instance: " + instanceId);
                     }
                 }
             }
