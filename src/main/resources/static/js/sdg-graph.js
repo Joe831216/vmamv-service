@@ -979,6 +979,12 @@ function BuildGraph(data) {
     let metricsActuratorJson = $("#metrics-actuator-json");
     let metricsElasticsearchJson = $("#metrics-elasticsearch-json");
 
+    let nodeSettingforms = $("#node-setting-form");
+    let failureStatusRateInput = nodeSettingforms.find("#failure-status-rate");
+    let failureErrorCountInput = nodeSettingforms.find("#failure-error-count");
+    let enableRestFailureAlertInput = nodeSettingforms.find("#enable-rest-failure-alert");
+    let enableLogFailureAlertInput = nodeSettingforms.find("#enable-log-failure-alert");
+
     $("#failure-status-rate").on("input", function () {
         $("#failure-status-rate-text").val(this.value + "%");
     }).trigger("change");
@@ -994,10 +1000,15 @@ function BuildGraph(data) {
 
 
         if (d.labels.includes(LABEL_SERVICE) && !d.labels.includes(LABEL_NULLSERVICE)) {
-            cardInfoTab.addClass("show").tab('show');
+            cardInfoTab.addClass("show");
             cardGraphTab.addClass("show");
             cardMonitorTab.addClass("show");
             cardAlertTab.addClass("show");
+            if (!(cardGraphTab.hasClass("active") ||
+                cardMonitorTab.hasClass("active") ||
+                cardAlertTab.hasClass("active"))) {
+                cardInfoTab.tab('show');
+            }
         } else {
             cardGraphTab.addClass("show").tab('show');
         }
@@ -1008,7 +1019,7 @@ function BuildGraph(data) {
 
         nodeInfoBody.empty();
 
-        graphList.find(".active").removeClass("active");
+        //graphList.find(".active").removeClass("active");
         graphCollapse.unbind();
         graphProvider.unbind();
         graphConsumers.unbind();
@@ -1020,6 +1031,9 @@ function BuildGraph(data) {
         healthJson.empty();
         metricsActuratorJson.empty();
         metricsElasticsearchJson.empty();
+
+        nodeSettingforms.unbind();
+        nodeSettingforms.removeClass("was-validated");
 
         // Release stick node.
         if (stickNode != null) {
@@ -1213,17 +1227,36 @@ function BuildGraph(data) {
         }
 
         // Alert
-        /*
-        $("#node-setting-submit").on("click", function () {
-            let settingData = JSON.stringify($("#node-setting-form").serializeArray());
-            console.log(settingData);
-        });
-        */
+        fetch("/web-page/app/setting/" + d.appId)
+            .then(response => response.json())
+            .then(json => {
+                if (json.failureStatusRate) {
+                    failureStatusRateInput.val(json.failureStatusRate * 100).trigger("input");
+                } else {
+                    failureStatusRateInput.val(100).trigger("input");
+                }
+                if (json.failureErrorCount) {
+                    failureErrorCountInput.val(json.failureErrorCount);
+                } else {
+                    failureErrorCountInput.val("");
+                }
+                if (json.enableRestFailureAlert) {
+                    enableRestFailureAlertInput.prop("checked", true);
+                } else {
+                    enableRestFailureAlertInput.prop("checked", false);
+                }
+                if (json.enableLogFailureAlert) {
+                    enableLogFailureAlertInput.prop("checked", true);
+                } else {
+                    enableLogFailureAlertInput.prop("checked", false);
+                }
+            }).catch(error => {
+                console.error("Error:", error)
+            });
 
-        let nodeSettingforms = $("#node-setting-form");
-            // Loop over them and prevent submission
+        // Loop over them and prevent submission
         let validation = Array.prototype.filter.call(nodeSettingforms, function(form) {
-            form.addEventListener("submit", function(event) {
+            $(form).submit(function (event) {
                 event.preventDefault();
                 event.stopPropagation();
                 if (form.checkValidity() !== false) {
@@ -1237,10 +1270,28 @@ function BuildGraph(data) {
                             data[input.name] = input.value;
                         }
                     });
-                    console.log(JSON.stringify(data));
+                    fetch("/web-page/app/setting/" + d.appId, {
+                        method: "post",
+                        body: JSON.stringify(data),
+                        headers: new Headers({
+                            "Content-Type": "application/json"
+                        })
+                    }).then(res => res.json())
+                        .catch(error => {
+                            toast.find("strong").empty().append("Setting failed");
+                            toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" was failed.");
+                            toast.toast('show');
+                            console.error("Error:", error)
+                        })
+                        .then(response => {
+                            toast.find("strong").empty().append("Setting updated");
+                            toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" has been successfully updated.");
+                            toast.toast('show');
+                            console.log("Success", response);
+                        });
                 }
                 form.classList.add('was-validated');
-            }, false);
+            });
         });
 
         // Show

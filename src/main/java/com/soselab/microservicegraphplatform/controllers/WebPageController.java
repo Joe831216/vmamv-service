@@ -3,6 +3,11 @@ package com.soselab.microservicegraphplatform.controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
+import com.soselab.microservicegraphplatform.bean.mgp.AppSetting;
+import com.soselab.microservicegraphplatform.bean.neo4j.Service;
+import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
+import com.soselab.microservicegraphplatform.repositories.neo4j.ServiceRepository;
+import com.soselab.microservicegraphplatform.repositories.neo4j.SettingRepository;
 import com.soselab.microservicegraphplatform.services.LogAnalyzer;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
@@ -15,10 +20,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -30,6 +32,10 @@ public class WebPageController {
 
     @Autowired
     private GeneralRepository generalRepository;
+    @Autowired
+    private ServiceRepository serviceRepository;
+    @Autowired
+    private SettingRepository settingRepository;
     @Autowired
     private RefreshScheduledTask refreshScheduledTask;
     @Autowired
@@ -94,6 +100,40 @@ public class WebPageController {
     public AppMetrics getMetrics(@PathVariable("appId") String appId) {
         String[] appInfo = appId.split(":");
         return logAnalyzer.getMetrics(appInfo[0], appInfo[1], appInfo[2]);
+    }
+
+    @GetMapping("/app/setting/{appId}")
+    public AppSetting getSetting(@PathVariable("appId") String appId) {
+        Setting settingNode = settingRepository.findByConfigServiceAppId(appId);
+        AppSetting setting = new AppSetting();
+        if (settingNode != null) {
+            if (settingNode.getEnableRestFailureAlert() != null) setting.setEnableRestFailureAlert(settingNode.getEnableRestFailureAlert());
+            if (settingNode.getEnableLogFailureAlert() != null) setting.setEnableLogFailureAlert(settingNode.getEnableLogFailureAlert());
+            if (settingNode.getFailureStatusRate() != null) setting.setFailureStatusRate(settingNode.getFailureStatusRate());
+            if (settingNode.getFailureErrorCount() != null) setting.setFailureErrorCount(settingNode.getFailureErrorCount());
+        }
+        return setting;
+    }
+
+    @PostMapping("/app/setting/{appId}")
+    public void postSetting(@PathVariable("appId") String appId, @RequestBody Setting setting) {
+        if (setting != null) {
+            Setting oldSetting = settingRepository.findByConfigServiceAppId(appId);
+            if (oldSetting != null) {
+                if (setting.getFailureStatusRate() != null) oldSetting.setFailureStatusRate(setting.getFailureStatusRate());
+                if (setting.getFailureErrorCount() != null) oldSetting.setFailureErrorCount(setting.getFailureErrorCount());
+                if (setting.getEnableRestFailureAlert() != null) oldSetting.setEnableRestFailureAlert(setting.getEnableRestFailureAlert());
+                if (setting.getEnableLogFailureAlert() != null) oldSetting.setEnableLogFailureAlert(setting.getEnableLogFailureAlert());
+                settingRepository.save(oldSetting);
+            } else {
+                Service service = serviceRepository.findByAppId(appId);
+                if (service != null) {
+                    setting.setConfigService(service);
+                    settingRepository.save(setting);
+                }
+            }
+            logger.info(appId + " setting updated");
+        }
     }
 
     @MessageMapping("/graph/{systemName}")

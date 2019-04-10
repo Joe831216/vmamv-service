@@ -47,6 +47,8 @@ public class RefreshScheduledTask {
     private WebPageController webPageController;
     @Autowired
     private EurekaAndServicesRestTool eurekaAndServicesRestTool;
+    @Autowired
+    private LogAnalyzer logAnalyzer;
 
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
@@ -163,7 +165,7 @@ public class RefreshScheduledTask {
                                 for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: newAppsMap.entrySet()) {
                                     String appName = entry.getValue().getKey().getAppName();
                                     String version = entry.getValue().getKey().getVersion();
-                                    content += appName + " : " + version;
+                                    content += "\"" + appName + " : " + version + "\"";
                                     if (index != newAppsMap.size() - 1) {
                                         content += "<br>";
                                     } else {
@@ -183,7 +185,7 @@ public class RefreshScheduledTask {
                                     String[] appInfo = appId.split(":");
                                     String appName = appInfo[1];
                                     String version = appInfo[2];
-                                    content += appName + " : " + version;
+                                    content += "\"" + appName + " : " + version + "\"";
                                     if (index > newAppsMap.size() - 1) {
                                         content += "<br>";
                                     }
@@ -196,6 +198,7 @@ public class RefreshScheduledTask {
                         } else {
                             updated.put(systemName, false);
                         }
+                        logAnalyzer.checkMetricsOfAppsInSystem(systemName);
                     } catch (ResourceAccessException e) {
                         logger.error(e.getMessage(), e);
                     }

@@ -1,35 +1,20 @@
-package com.soselab.microservicegraphplatform.bean.neo4j;
+package com.soselab.microservicegraphplatform.bean.mgp;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import org.neo4j.ogm.annotation.GraphId;
-import org.neo4j.ogm.annotation.NodeEntity;
-import org.neo4j.ogm.annotation.Relationship;
-
-import java.util.Set;
-
-@NodeEntity
-public class Setting {
-
-    @GraphId
-    private Long id;
+public class AppSetting {
 
     private Boolean enableRestFailureAlert;
     private Boolean enableLogFailureAlert;
     private Float failureStatusRate;
     private Long failureErrorCount;
 
-    public Setting() {
+    public AppSetting() {
     }
 
-    public Setting(Boolean enableRestFailureAlert, Boolean enableLogFailureAlert, Float failureStatusRate, Long failureErrorCount) {
+    public AppSetting(Boolean enableRestFailureAlert, Boolean enableLogFailureAlert, Float failureStatusRate, Long failureErrorCount) {
         this.enableRestFailureAlert = enableRestFailureAlert;
         this.enableLogFailureAlert = enableLogFailureAlert;
         this.failureStatusRate = failureStatusRate;
         this.failureErrorCount = failureErrorCount;
-    }
-
-    public Long getId() {
-        return id;
     }
 
     public Boolean getEnableRestFailureAlert() {
@@ -63,16 +48,4 @@ public class Setting {
     public void setFailureErrorCount(Long failureErrorCount) {
         this.failureErrorCount = failureErrorCount;
     }
-
-    @Relationship(type = "MGP_CONFIG", direction = Relationship.INCOMING)
-    private Service configService;
-
-    public Service getConfigService() {
-        return configService;
-    }
-
-    public void setConfigService(Service configService) {
-        this.configService = configService;
-    }
-
 }
