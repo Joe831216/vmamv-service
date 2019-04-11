@@ -1219,7 +1219,7 @@ function BuildGraph(data) {
                     metricsActuratorJson.jsonViewer(json, {collapsed: true, withQuotes: false});
                 });
 
-            fetch("/web-page/app/metrics/" + d.appId)
+            fetch("/web-page/app/metrics/log/" + d.appId)
                 .then(response => response.json())
                 .then(json => {
                     metricsElasticsearchJson.jsonViewer(json, {collapsed: true, withQuotes: false});

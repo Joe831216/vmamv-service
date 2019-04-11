@@ -11,7 +11,7 @@
 			margin: 0px;
 		}
 
-		.sdg-sapcing {
+		.sdg-spacing {
 			margin-bottom: 500px;
 		}
 
@@ -136,6 +136,7 @@
 	<script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
 	<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
 	<script src="js/d3-symbol-extra.min.js"></script>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" crossorigin="anonymous">
 	<script defer src="js/sdg-graph.js"></script>
 	<script defer src="js/index.js"></script>
 </head>
@@ -212,29 +213,29 @@
 		</defs>
 	</svg>
 </div>
+<div aria-live="polite" aria-atomic="true" class="mt-3" style="z-index: 1;position: fixed; left: 50%; transform: translateX(-50%);">
+    <div id="toast-div">
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="10000">
+            <div class="toast-header">
+                <strong class="mr-auto"></strong>
+                <small>just now</small>
+                <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="toast-body">
+            </div>
+        </div>
+    </div>
+</div>
 <div class="container-fluid">
 	<div class="row justify-content-between">
-		<div class="sdg-sapcing col-auto align-self-start">
+		<div class="sdg-spacing col-auto align-self-start">
 			<div class="dropdown">
 				<button class="btn btn-secondary shadow-sm dropdown-toggle" type="button" id="systemsDropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 					Select system
 				</button>
 				<div id="systemsDropdownMenu" class="dropdown-menu" aria-labelledby="systemsDropdownMenuButton">
-				</div>
-			</div>
-		</div>
-		<div aria-live="polite" aria-atomic="true" style="min-height: 200px;">
-			<div id="toast-div" class="col-auto">
-				<div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="5000">
-					<div class="toast-header">
-						<strong class="mr-auto"></strong>
-						<small>just now</small>
-						<button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
-							<span aria-hidden="true">&times;</span>
-						</button>
-					</div>
-					<div class="toast-body">
-					</div>
 				</div>
 			</div>
 		</div>
@@ -245,18 +246,30 @@
 						<span aria-hidden="true">&times;</span>
 					</button>
 					<h5 class="card-title"></h5>
-					<ul class="nav nav-tabs card-header-tabs" role="tablist">
+					<ul class="nav nav-pills card-header-pills" role="tablist">
 						<li class="nav-item">
-							<a id="information-tab" class="nav-link collapse" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="false">Infomation</a>
+							<a id="information-tab" class="nav-link collapse" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="false">
+                                <i class="fas fa-info-circle"></i>
+                                Information
+                            </a>
 						</li>
 						<li class="nav-item">
-							<a id="graph-tab" class="nav-link collapse" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">Graph</a>
+							<a id="graph-tab" class="nav-link collapse" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">
+                                <i class="fas fa-project-diagram"></i>
+                                Graph
+                            </a>
 						</li>
 						<li class="nav-item">
-							<a id="monitor-tab" class="nav-link collapse" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">Monitor</a>
+							<a id="monitor-tab" class="nav-link collapse" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">
+                                <i class="fas fa-chart-bar"></i>
+                                Monitor
+                            </a>
 						</li>
                         <li class="nav-item">
-                            <a id="alert-tab" class="nav-link collapse" href="#node-alert" data-toggle="tab" tole="tab" aria-controls="node-alert" aria-selected="false">Alert</a>
+                            <a id="alert-tab" class="nav-link collapse" href="#node-alert" data-toggle="tab" tole="tab" aria-controls="node-alert" aria-selected="false">
+                                <i class="fas fa-bell"></i>
+                                Alert
+                            </a>
                         </li>
 					</ul>
 				</div>

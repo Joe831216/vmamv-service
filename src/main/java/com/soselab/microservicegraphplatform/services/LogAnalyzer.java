@@ -5,10 +5,7 @@ import com.soselab.microservicegraphplatform.bean.elasticsearch.MgpLog;
 import com.soselab.microservicegraphplatform.bean.elasticsearch.RequestAndResponseMessage;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.Status;
-import com.soselab.microservicegraphplatform.bean.neo4j.Service;
-import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.repositories.elasticsearch.HttpRequestAndResponseRepository;
-import com.soselab.microservicegraphplatform.repositories.neo4j.ServiceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +14,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Configuration
 public class LogAnalyzer {
@@ -25,8 +25,6 @@ public class LogAnalyzer {
 
     @Autowired
     private HttpRequestAndResponseRepository httpRequestAndResponseRepository;
-    @Autowired
-    private ServiceRepository serviceRepository;
     @Autowired
     private ObjectMapper mapper;
 
@@ -40,8 +38,7 @@ public class LogAnalyzer {
         }
         //logger.info(systemName + ":" + appName + ":" + version + " : average duration calculate by recent " + responseLogs.size() + " responses: " + metrics.getAverageDuration() + "ms");
         metrics.setStatuses(getResponseStausMetrics(responseLogs));
-        List<MgpLog> errors = httpRequestAndResponseRepository.findErrorsBySystemNameAndAppNameAndVersion(systemName, appName, version);
-        metrics.setErrorCount(errors.size());
+        metrics.setErrorCount(getErrorCount(systemName, appName, version));
         //logger.info(systemName + ":" + appName + ":" + version + " : error count: " + metrics.getErrorCount());
         return metrics;
     }
@@ -93,32 +90,8 @@ public class LogAnalyzer {
         return statuses;
     }
 
-    public void checkMetricsOfAppsInSystem (String systemName) {
-        List<Service> services = serviceRepository.findBySystemNameWithSetting(systemName);
-        for (Service service : services) {
-            Setting setting = service.getSetting();
-            if (setting.getEnableLogFailureAlert()) {
-                AppMetrics metrics = getMetrics(service.getSystemName(), service.getAppName(), service.getVersion());
-                // Failure status rate
-                float failureStatusRate = 1;
-                for (Status status : metrics.getStatuses()) {
-                    if (status.getCode() == 200) {
-                        failureStatusRate -= status.getRatio();
-                        break;
-                    }
-                }
-                if (failureStatusRate > setting.getFailureStatusRate()) {
-                    logger.info("Found service " + service.getAppId() + " exception: failureStatusRate = " +
-                            failureStatusRate + " (threshold = " + setting.getFailureStatusRate() + ")");
-                }
-                // Error
-                if (metrics.getErrorCount() > setting.getFailureErrorCount()) {
-                    logger.info("Found service " + service.getAppId() + " exception: error count = " +
-                            metrics.getErrorCount() + " (threshold = " + setting.getFailureErrorCount() + ")");
-                }
-            }
-            //if (setting.getEnableRestFailureAlert())
-        }
+    private Integer getErrorCount(String systemName, String appName, String version) {
+        return httpRequestAndResponseRepository.findErrorsBySystemNameAndAppNameAndVersion(systemName, appName, version).size();
     }
 
 }

@@ -3,7 +3,7 @@ package com.soselab.microservicegraphplatform.services;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Ints;
-import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
+import com.soselab.microservicegraphplatform.SpringRestTool;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
@@ -46,9 +46,9 @@ public class RefreshScheduledTask {
     @Autowired
     private WebPageController webPageController;
     @Autowired
-    private EurekaAndServicesRestTool eurekaAndServicesRestTool;
+    private SpringRestTool springRestTool;
     @Autowired
-    private LogAnalyzer logAnalyzer;
+    private MonitorService monitorService;
 
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper mapper = new ObjectMapper();
@@ -94,7 +94,7 @@ public class RefreshScheduledTask {
                         String url = "http://" + instance.getIpAddr() + ":" + instance.getPort() + "/eureka/apps/";
                         AppsList eurekaAppsList = restTemplate.getForObject(url, AppsList.class);
                         Map<String, Pair<MgpApplication, Integer>> eurekaAppsInfoAndNum =
-                                eurekaAndServicesRestTool.getAppsInfoAndNumFromEurekaAppList(systemName, eurekaAppsList);
+                                springRestTool.getAppsInfoAndNumFromEurekaAppList(systemName, eurekaAppsList);
                         List<Service> ServicesInDB = serviceRepository.findBySysName(serviceRegistry.getSystemName());
                         List<NullService> nullServiceInDB = serviceRepository.findNullBySysName(serviceRegistry.getSystemName());
                         // Check the service should be created or updated or removed in graph DB.
@@ -198,7 +198,7 @@ public class RefreshScheduledTask {
                         } else {
                             updated.put(systemName, false);
                         }
-                        logAnalyzer.checkMetricsOfAppsInSystem(systemName);
+                        monitorService.checkMetricsOfAppsInSystem(systemName);
                     } catch (ResourceAccessException e) {
                         logger.error(e.getMessage(), e);
                     }
@@ -218,7 +218,7 @@ public class RefreshScheduledTask {
         newAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
+            Map<String, Object> swaggerMap = springRestTool.getSwaggerFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 MgpApplication app = appInfoAndNum.getKey();
@@ -266,12 +266,12 @@ public class RefreshScheduledTask {
         if (noVerNullApp != null) {
             List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(noVerNullApp.getAppId());
             for (Service dependentApp : dependentApps) {
-                MgpApplication appInfo = eurekaAndServicesRestTool.getAppFromEureka
+                MgpApplication appInfo = springRestTool.getAppFromEureka
                         (serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
                 String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                 int port = appInfo.getInstances().get(0).getPort();
                 String serviceUrl = "http://" + ipAddr + ":" + port;
-                Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
+                Map<String, Object> swaggerMap = springRestTool.getSwaggerFromRemoteApp(serviceUrl);
                 updateDependencyApps.add(new MutablePair<>(appInfo, swaggerMap));
             }
         } else {
@@ -281,12 +281,12 @@ public class RefreshScheduledTask {
                 List<Service> dependentApps = serviceRepository.findDependentOnThisAppByAppId(otherVerApp.getAppId());
                 if (dependentApps != null) {
                     for (Service dependentApp : dependentApps) {
-                        MgpApplication appInfo = eurekaAndServicesRestTool.getAppFromEureka
+                        MgpApplication appInfo = springRestTool.getAppFromEureka
                                 (serviceRegistry, dependentApp.getAppName(), dependentApp.getVersion());
                         String ipAddr = appInfo.getInstances().get(0).getIpAddr();
                         int port = appInfo.getInstances().get(0).getPort();
                         String serviceUrl = "http://" + ipAddr + ":" + port;
-                        Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
+                        Map<String, Object> swaggerMap = springRestTool.getSwaggerFromRemoteApp(serviceUrl);
                         if (swaggerMap != null) {
                             Map<String, Object> dependencyMap = mapper.convertValue(swaggerMap.get("x-serviceDependency"), new TypeReference<Map<String, Object>>(){});
                             if (dependencyMap.get("httpRequest") != null) {
@@ -454,7 +454,7 @@ public class RefreshScheduledTask {
         recoveryAppsMap.forEach((appId, appInfoAndNum) -> {
             MgpInstance instance = appInfoAndNum.getKey().getInstances().get(0);
             String serviceUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
-            Map<String, Object> swaggerMap = eurekaAndServicesRestTool.getSwaggerFromRemoteApp(serviceUrl);
+            Map<String, Object> swaggerMap = springRestTool.getSwaggerFromRemoteApp(serviceUrl);
             if (swaggerMap != null) {
                 appSwaggers.put(appId, swaggerMap);
                 //String noVerAppId = appInfoAndNum.getKey().getSystemName() + ":" + appInfoAndNum.getKey().getAppName() + ":null";

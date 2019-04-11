@@ -2,17 +2,19 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.soselab.microservicegraphplatform.EurekaAndServicesRestTool;
+import com.soselab.microservicegraphplatform.SpringRestTool;
 import com.soselab.microservicegraphplatform.bean.mgp.AppSetting;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
 import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.repositories.neo4j.ServiceRepository;
 import com.soselab.microservicegraphplatform.repositories.neo4j.SettingRepository;
 import com.soselab.microservicegraphplatform.services.LogAnalyzer;
+import com.soselab.microservicegraphplatform.services.MonitorService;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.repositories.neo4j.GeneralRepository;
 import com.soselab.microservicegraphplatform.services.RefreshScheduledTask;
+import com.soselab.microservicegraphplatform.services.RestInfoAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,9 +41,13 @@ public class WebPageController {
     @Autowired
     private RefreshScheduledTask refreshScheduledTask;
     @Autowired
-    private EurekaAndServicesRestTool eurekaAndServicesRestTool;
+    private SpringRestTool springRestTool;
+    @Autowired
+    private MonitorService monitorService;
     @Autowired
     private LogAnalyzer logAnalyzer;
+    @Autowired
+    private RestInfoAnalyzer restInfoAnalyzer;
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
     @Autowired
@@ -93,13 +99,19 @@ public class WebPageController {
     @GetMapping("/app/swagger/{appId}")
     public String getSwagger(@PathVariable("appId") String appId) {
         String[] appInfo = appId.split(":");
-        return eurekaAndServicesRestTool.getSwaggerFromRemoteApp(appInfo[0], appInfo[1], appInfo[2]);
+        return springRestTool.getSwaggerFromRemoteApp(appInfo[0], appInfo[1], appInfo[2]);
     }
 
-    @GetMapping("/app/metrics/{appId}")
-    public AppMetrics getMetrics(@PathVariable("appId") String appId) {
+    @GetMapping("/app/metrics/log/{appId}")
+    public AppMetrics getLogMetrics(@PathVariable("appId") String appId) {
         String[] appInfo = appId.split(":");
         return logAnalyzer.getMetrics(appInfo[0], appInfo[1], appInfo[2]);
+    }
+
+    @GetMapping("/app/metrics/rest/{appId}")
+    public AppMetrics getRestMetrics(@PathVariable("appId") String appId) {
+        String[] appInfo = appId.split(":");
+        return restInfoAnalyzer.getMetrics(appInfo[0], appInfo[1], appInfo[2]);
     }
 
     @GetMapping("/app/setting/{appId}")

@@ -3,6 +3,7 @@ package com.soselab.microservicegraphplatform;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soselab.microservicegraphplatform.bean.actuators.Info;
+import com.soselab.microservicegraphplatform.bean.actuators.trace.Trace;
 import com.soselab.microservicegraphplatform.bean.eureka.AppInstance;
 import com.soselab.microservicegraphplatform.bean.eureka.AppList;
 import com.soselab.microservicegraphplatform.bean.eureka.Application;
@@ -23,14 +24,11 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Configuration
-public class EurekaAndServicesRestTool {
-    private static final Logger logger = LoggerFactory.getLogger(EurekaAndServicesRestTool.class);
+public class SpringRestTool {
+    private static final Logger logger = LoggerFactory.getLogger(SpringRestTool.class);
 
     @Autowired
     private ServiceRegistryRepository serviceRegistryRepository;
@@ -39,6 +37,8 @@ public class EurekaAndServicesRestTool {
     @Autowired
     private ObjectMapper mapper;
     private RestTemplate restTemplate = new RestTemplate();
+
+    // [Eureka]
 
     public MgpApplication getAppFromEureka(String systemName, String appName, String version) {
         ServiceRegistry serviceRegistry = serviceRegistryRepository.findBySystemName(systemName);
@@ -51,8 +51,10 @@ public class EurekaAndServicesRestTool {
                 String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
                 String ver = restTemplate.getForObject( url + "/info", Info.class).getVersion();
                 if (ver.equals(version)) {
+                    if (mgpApplication == null) {
+                        mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
+                    }
                     MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
-                    mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
                     mgpApplication.addInstance(mgpInstance);
                 }
             }
@@ -72,8 +74,10 @@ public class EurekaAndServicesRestTool {
                 String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
                 String ver = restTemplate.getForObject( url + "/info", Info.class).getVersion();
                 if (ver.equals(version)) {
+                    if (mgpApplication == null) {
+                        mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
+                    }
                     MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
-                    mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
                     mgpApplication.addInstance(mgpInstance);
                 }
             }
@@ -81,6 +85,28 @@ public class EurekaAndServicesRestTool {
 
         return mgpApplication;
     }
+
+    /*public List<MgpApplication> getAppsFromEureka(String systemName, String appName, String version) {
+        ServiceRegistry serviceRegistry = serviceRegistryRepository.findBySystemName(systemName);
+        List<Instance> registryInstance = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
+        String registryUrl = "http://" + registryInstance.get(0).getIpAddr() + ":" + registryInstance.get(0).getPort() + "/eureka/apps/" + appName;
+        AppList eurekaApp = restTemplate.getForObject(registryUrl, AppList.class);
+        List<MgpApplication> mgpApplications = new ArrayList<>();
+        for (AppInstance instance: eurekaApp.getApplication().getInstance()) {
+            if (instance.getStatus().equals("UP")) {
+                String url = "http://" + instance.getIpAddr() + ":" + instance.getPort().get$();
+                String ver = getVersionFromRemoteApp(url);
+                if (ver.equals(version)) {
+                    MgpInstance mgpInstance = new MgpInstance(instance.getHostName(), appName, instance.getIpAddr(), instance.getPort().get$());
+                    MgpApplication mgpApplication = new MgpApplication(serviceRegistry.getSystemName(), appName, version, new ArrayList<>());
+                    mgpApplication.addInstance(mgpInstance);
+                    mgpApplications.add(mgpApplication);
+                }
+            }
+        }
+
+        return mgpApplications;
+    }*/
 
     // Map<appId, Pair<appInfo, number of apps>>
     public Map<String, Pair<MgpApplication, Integer>> getAppsInfoAndNumFromEurekaAppList(String systemName, AppsList appsList) {
@@ -117,19 +143,7 @@ public class EurekaAndServicesRestTool {
         return appInfoAndNum;
     }
 
-    public String getVersionFromRemoteApp(String serviceUrl) {
-        try {
-            Info appInfo = restTemplate.getForObject( serviceUrl + "/info", Info.class);
-            if (appInfo != null) {
-                return appInfo.getVersion();
-            } else {
-                return null;
-            }
-        } catch (ResourceAccessException e) {
-            logger.error(e.getMessage(), e);
-            return null;
-        }
-    }
+    // [SpringFox]
 
     public String getSwaggerFromRemoteApp(String systemName, String appName, String version) {
         MgpApplication mgpApplication = getAppFromEureka(systemName, appName, version);
@@ -148,4 +162,45 @@ public class EurekaAndServicesRestTool {
         return swaggerMap;
     }
 
+    // [Spring Actuator]
+
+    public String getVersionFromRemoteApp(String serviceUrl) {
+        try {
+            Info appInfo = restTemplate.getForObject( serviceUrl + "/info", Info.class);
+            if (appInfo != null) {
+                return appInfo.getVersion();
+            } else {
+                return null;
+            }
+        } catch (ResourceAccessException e) {
+            logger.error(e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public List<Trace> getTraceFromRemoteApp(String appUrl) {
+        try {
+            Trace[] traces = restTemplate.getForObject( appUrl + "/trace", Trace[].class);
+            if (traces != null) {
+                return Arrays.asList(traces);
+            } else {
+                return null;
+            }
+        } catch (ResourceAccessException e) {
+            logger.error(e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public List<Trace> getTracesFromRemoteApp(String systemName, String appName, String version) {
+        List<Trace> traces = new ArrayList<>();
+        MgpApplication mgpApplication = getAppFromEureka(systemName, appName, version);
+        if (mgpApplication != null) {
+            for (MgpInstance instance : mgpApplication.getInstances()) {
+                String appUrl = "http://" + instance.getIpAddr() + ":" + instance.getPort();
+                traces.addAll(getTraceFromRemoteApp(appUrl));
+            }
+        }
+        return traces;
+    }
 }
