@@ -47,8 +47,9 @@ public interface ServiceRepository extends Neo4jRepository<Service, Long> {
 
     @Query("MATCH (m:Service {appId: {appId}}) " +
             "OPTIONAL MATCH (m)-[:OWN]->(e:Endpoint) " +
-            "DETACH DELETE m, e")
-    void deleteWithEndpointsByAppId(@Param("appId") String appId);
+            "OPTIONAL MATCH (m)-[:MGP_CONFIG]->(s:Setting) " +
+            "DETACH DELETE m, e, s")
+    void deleteWithEndpointsAndSettingByAppId(@Param("appId") String appId);
 
     @Query("MATCH (nm:NullService) WHERE NOT (nm)-[:OWN]->() DETACH DELETE nm")
     void deleteUselessNullService();

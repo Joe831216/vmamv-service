@@ -243,10 +243,7 @@ function BuildGraph(data) {
         if (collapseData.links.length > 0 && !collapseData.links[0].source.hasOwnProperty("id")) {
             // If collapseData has not been init by D3.js yet.
             collapseData = createCollapseData(d);
-            console.log(collapseData);
-            console.log("274")
         } else {
-            console.log("276");
             let newCollapseData = createCollapseData(d);
 
             // REMOVE old nodes
@@ -968,10 +965,10 @@ function BuildGraph(data) {
     let graphCollapse = $("#graph-collapse");
     let graphProvider = $("#graph-providers");
     let graphConsumers = $("#graph-consumers");
-    let graphDependencyStrong = $("#graph-dependency-strong");
-    let graphDependencyWeak = $("#graph-dependency-weak");
-    let graphSubordinateStrong = $("#graph-subordinate-strong");
-    let graphSubordinateWeak = $("#graph-subordinate-weak");
+    let graphUpperDependencyStrong = $("#graph-upper-dependency-strong");
+    let graphUpperDependencyWeak = $("#graph-upper-dependency-weak");
+    let graphLowerDependencyStrong = $("#graph-lower-dependency-strong");
+    let graphLowerDependencyWeak = $("#graph-lower-dependency-weak");
 
     let nodeMonitorBody = $("#node-monitor .card-body").first();
     let nodeMonitorTitle = nodeMonitorBody.find(".card-title").first();
@@ -1023,10 +1020,10 @@ function BuildGraph(data) {
         graphCollapse.unbind();
         graphProvider.unbind();
         graphConsumers.unbind();
-        graphDependencyStrong.unbind();
-        graphSubordinateStrong.unbind();
-        graphDependencyWeak.unbind();
-        graphSubordinateWeak.unbind();
+        graphUpperDependencyStrong.unbind();
+        graphLowerDependencyStrong.unbind();
+        graphUpperDependencyWeak.unbind();
+        graphLowerDependencyWeak.unbind();
 
         healthJson.empty();
         metricsActuratorJson.empty();
@@ -1145,11 +1142,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphDependencyStrong.on("click", function () {
+        graphUpperDependencyStrong.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/strong-dependent-chain/" + d.id)
+                fetch("/web-page/graph/strong-upper-dependency-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -1160,11 +1157,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphDependencyWeak.on("click", function () {
+        graphUpperDependencyWeak.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/weak-dependent-chain/" + d.id)
+                fetch("/web-page/graph/weak-upper-dependency-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -1175,11 +1172,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphSubordinateStrong.on("click", function () {
+        graphLowerDependencyStrong.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/strong-subordinate-chain//" + d.id)
+                fetch("/web-page/graph/strong-lower-dependency-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -1190,11 +1187,11 @@ function BuildGraph(data) {
             }
         });
 
-        graphSubordinateWeak.on("click", function () {
+        graphLowerDependencyWeak.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
                 $(this).addClass("active");
-                fetch("/web-page/graph/weak-subordinate-chain/" + d.id)
+                fetch("/web-page/graph/weak-lower-dependency-chain/" + d.id)
                     .then(response => response.json())
                     .then(json => {
                         highlight(json);
@@ -1230,12 +1227,12 @@ function BuildGraph(data) {
         fetch("/web-page/app/setting/" + d.appId)
             .then(response => response.json())
             .then(json => {
-                if (json.failureStatusRate) {
+                if (!isNaN(json.failureStatusRate)) {
                     failureStatusRateInput.val(json.failureStatusRate * 100).trigger("input");
                 } else {
                     failureStatusRateInput.val(100).trigger("input");
                 }
-                if (json.failureErrorCount) {
+                if (!isNaN(json.failureErrorCount)) {
                     failureErrorCountInput.val(json.failureErrorCount);
                 } else {
                     failureErrorCountInput.val("");
@@ -1278,12 +1275,20 @@ function BuildGraph(data) {
                         })
                     }).then(res => res.json())
                         .catch(error => {
+                            toast.find("i").remove();
+                            toast.find(".toast-header")
+                                .attr("class", "toast-header text-white bg-warning")
+                                .prepend("<i class='fas fa-bug mr-2'></i>");
                             toast.find("strong").empty().append("Setting failed");
                             toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" was failed.");
                             toast.toast('show');
                             console.error("Error:", error)
                         })
                         .then(response => {
+                            toast.find("i").remove();
+                            toast.find(".toast-header")
+                                .attr("class", "toast-header text-white bg-primary")
+                                .prepend("<i class='fas fa-info-circle mr-2'></i>");
                             toast.find("strong").empty().append("Setting updated");
                             toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" has been successfully updated.");
                             toast.toast('show');
@@ -1296,6 +1301,10 @@ function BuildGraph(data) {
 
         // Show
         cardDiv.addClass("show");
+    }
+
+    this.closeNodeCard = function() {
+        cardClose.click();
     }
 
 }

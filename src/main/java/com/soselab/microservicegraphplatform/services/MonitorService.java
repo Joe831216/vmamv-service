@@ -43,14 +43,14 @@ public class MonitorService {
                 if (failureStatusRateResult.getKey()) {
                     String content = service.getAppId() + " exceeded the threshold of fault status rate: current value (Elasticsearch) = " +
                             failureStatusRateResult.getValue() * 100 + "%, threshold = " + setting.getFailureStatusRate() * 100 + "%";
-                    WebNotification notification = new WebNotification(notiTitle, content);
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
                     webPageController.sendNotification(systemName, notification);
                 }
                 // Error
-                if (metrics.getErrorCount() > setting.getFailureErrorCount()) {
+                if (setting.getFailureErrorCount() != null && metrics.getErrorCount() > setting.getFailureErrorCount()) {
                     String content = service.getAppId() + " exceeded the threshold of error count: current value (Elasticsearch) = " +
                             metrics.getErrorCount() + ", threshold = " + setting.getFailureErrorCount();
-                    WebNotification notification = new WebNotification(notiTitle, content);
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
                     webPageController.sendNotification(systemName, notification);
                     logger.info("Found service " + service.getAppId() + " exception: error count = " +
                             metrics.getErrorCount() + " (threshold = " + setting.getFailureErrorCount() + ")");
@@ -64,7 +64,7 @@ public class MonitorService {
                 if (failureStatusRateResult.getKey()) {
                     String content = service.getAppId() + " exceeded the threshold of fault status rate: current value (Spring Actuator) = " +
                             failureStatusRateResult.getValue() * 100 + "%, threshold = " + setting.getFailureStatusRate() * 100 + "%";
-                    WebNotification notification = new WebNotification(notiTitle, content);
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
                     webPageController.sendNotification(systemName, notification);
                 }
             }

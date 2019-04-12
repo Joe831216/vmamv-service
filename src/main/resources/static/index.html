@@ -215,7 +215,7 @@
 </div>
 <div aria-live="polite" aria-atomic="true" class="mt-3" style="z-index: 1;position: fixed; left: 50%; transform: translateX(-50%);">
     <div id="toast-div">
-        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="10000">
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="8000">
             <div class="toast-header">
                 <strong class="mr-auto"></strong>
                 <small>just now</small>
@@ -231,13 +231,25 @@
 <div class="container-fluid">
 	<div class="row justify-content-between">
 		<div class="sdg-spacing col-auto align-self-start">
-			<div class="dropdown">
-				<button class="btn btn-secondary shadow-sm dropdown-toggle" type="button" id="systemsDropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					Select system
+			<nav class="navbar navbar-light bg-light rounded-lg border shadow-sm pt-0 pb-0">
+				<button class="navbar-toggler border-0 collapsed" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+					<span class="fas fa-bars"></span>
 				</button>
-				<div id="systemsDropdownMenu" class="dropdown-menu" aria-labelledby="systemsDropdownMenuButton">
+				<div class="dropdown navbar-brand">
+					<button class="btn dropdown-toggle" type="button" id="systemsDropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						Select system
+					</button>
+					<div id="systemsDropdownMenu" class="dropdown-menu" aria-labelledby="systemsDropdownMenuButton">
+					</div>
 				</div>
-			</div>
+				<div class="collapse navbar-collapse" id="navbarNavDropdown">
+					<ul class="navbar-nav">
+						<li class="nav-item">
+							<a class="nav-link" href="#">Logs</a>
+						</li>
+					</ul>
+				</div>
+			</nav>
 		</div>
 		<div id="card-div" class="col-lg-4 align-self-start collapse">
 			<div id="node-card" class="card shadow-sm">
@@ -248,25 +260,25 @@
 					<h5 class="card-title"></h5>
 					<ul class="nav nav-pills card-header-pills" role="tablist">
 						<li class="nav-item">
-							<a id="information-tab" class="nav-link collapse" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="false">
+							<a id="information-tab" class="nav-link rounded-pill collapse" href="#node-infomation" data-toggle="tab" role="tab" aria-controls="node-infomation" aria-selected="false">
                                 <i class="fas fa-info-circle"></i>
                                 Information
                             </a>
 						</li>
 						<li class="nav-item">
-							<a id="graph-tab" class="nav-link collapse" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">
+							<a id="graph-tab" class="nav-link rounded-pill collapse" href="#node-graph" data-toggle="tab" tole="tab" aria-controls="node-graph" aria-selected="false">
                                 <i class="fas fa-project-diagram"></i>
                                 Graph
                             </a>
 						</li>
 						<li class="nav-item">
-							<a id="monitor-tab" class="nav-link collapse" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">
+							<a id="monitor-tab" class="nav-link rounded-pill collapse" href="#node-monitor" data-toggle="tab" tole="tab" aria-controls="node-monitor" aria-selected="false">
                                 <i class="fas fa-chart-bar"></i>
                                 Monitor
                             </a>
 						</li>
                         <li class="nav-item">
-                            <a id="alert-tab" class="nav-link collapse" href="#node-alert" data-toggle="tab" tole="tab" aria-controls="node-alert" aria-selected="false">
+                            <a id="alert-tab" class="nav-link rounded-pill collapse" href="#node-alert" data-toggle="tab" tole="tab" aria-controls="node-alert" aria-selected="false">
                                 <i class="fas fa-bell"></i>
                                 Alert
                             </a>
@@ -286,10 +298,10 @@
 								<button class="list-group-item list-group-item-action" id="graph-collapse">Collapse</button>
                                 <button class="list-group-item list-group-item-action" id="graph-providers">Providers</button>
                                 <button class="list-group-item list-group-item-action" id="graph-consumers">Consumers</button>
-								<button class="list-group-item list-group-item-action" id="graph-dependency-strong">Strong dependency chain</button>
-                                <button class="list-group-item list-group-item-action" id="graph-dependency-weak">Weak dependency chain</button>
-								<button class="list-group-item list-group-item-action" id="graph-subordinate-strong">Strong subordinate chain</button>
-								<button class="list-group-item list-group-item-action" id="graph-subordinate-weak">Weak subordinate chain</button>
+								<button class="list-group-item list-group-item-action" id="graph-upper-dependency-strong">Strong upper dependency chain</button>
+                                <button class="list-group-item list-group-item-action" id="graph-upper-dependency-weak">Weak upper dependency chain</button>
+								<button class="list-group-item list-group-item-action" id="graph-lower-dependency-strong">Strong lower dependency chain</button>
+								<button class="list-group-item list-group-item-action" id="graph-lower-dependency-weak">Weak lower dependency chain</button>
 							</div>
 						</div>
 					</div>

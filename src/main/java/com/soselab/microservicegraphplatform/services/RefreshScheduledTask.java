@@ -159,6 +159,7 @@ public class RefreshScheduledTask {
                             // App up notification.
                             if (newAppsMap.size() > 0) {
                                 WebNotification notification = new WebNotification();
+                                notification.setLevel(WebNotification.LEVEL_INFO);
                                 notification.setTitle("Services up");
                                 String content = "";
                                 int index = 0;
@@ -178,6 +179,7 @@ public class RefreshScheduledTask {
                             // App down notification.
                             if (removeAppsSet.size() > 0) {
                                 WebNotification notification = new WebNotification();
+                                notification.setLevel(WebNotification.LEVEL_INFO);
                                 notification.setTitle("Services down");
                                 String content = "";
                                 int index = 0;
@@ -371,6 +373,7 @@ public class RefreshScheduledTask {
                 }
                 if (latestPathApp.getKey() != null) {
                     WebNotification notification = new WebNotification();
+                    notification.setLevel(WebNotification.LEVEL_WARNING);
                     notification.setTitle("Waring");
                     notification.setContent("Found newer patch version: " +
                             mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " -> " + latestPathApp.getKey().getVersion());
@@ -397,6 +400,7 @@ public class RefreshScheduledTask {
                             if (otherAppVerCode[2] < thisAppVerCode[2]) {
                                 olderVerServices.add(otherVerService);
                                 WebNotification notification = new WebNotification();
+                                notification.setLevel(WebNotification.LEVEL_WARNING);
                                 notification.setTitle("Waring");
                                 notification.setContent("Found older patch version: " +
                                         mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " <- " + otherVerService.getVersion());
@@ -780,7 +784,7 @@ public class RefreshScheduledTask {
             if (serviceRepository.isBeDependentByAppId(appId)) {
                 serviceRepository.setNumToZeroAndAddNullLabelWithEndpointsByAppId(appId);
             } else {
-                serviceRepository.deleteWithEndpointsByAppId(appId);
+                serviceRepository.deleteWithEndpointsAndSettingByAppId(appId);
             }
             logger.info("Remove service: " + appId);
         }

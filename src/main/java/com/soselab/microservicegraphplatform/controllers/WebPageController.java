@@ -76,24 +76,24 @@ public class WebPageController {
         return generalRepository.getConsumers(id);
     }
 
-    @GetMapping("/graph/strong-dependent-chain/{id}")
+    @GetMapping("/graph/strong-upper-dependency-chain/{id}")
     public String getStrongDependencyChain(@PathVariable("id") Long id) {
-        return generalRepository.getStrongDependencyChainById(id);
+        return generalRepository.getStrongUpperDependencyChainById(id);
     }
 
-    @GetMapping("/graph/weak-dependent-chain/{id}")
+    @GetMapping("/graph/weak-upper-dependency-chain/{id}")
     public String getWeakDependencyChain(@PathVariable("id") Long id) {
-        return generalRepository.getWeakDependencyChainById(id);
+        return generalRepository.getWeakUpperDependencyChainById(id);
     }
 
-    @GetMapping("/graph/strong-subordinate-chain/{id}")
+    @GetMapping("/graph/strong-lower-dependency-chain/{id}")
     public String getStrongSubordinateChain(@PathVariable("id") Long id) {
-        return generalRepository.getStrongSubordinateChainById(id);
+        return generalRepository.getStrongLowerDependencyChainById(id);
     }
 
-    @GetMapping("/graph/weak-subordinate-chain/{id}")
+    @GetMapping("/graph/weak-lower-dependency-chain/{id}")
     public String getWeakSubordinateChain(@PathVariable("id") Long id) {
-        return generalRepository.getWeakSubordinateChainById(id);
+        return generalRepository.getWeakLowerDependencyChainById(id);
     }
 
     @GetMapping("/app/swagger/{appId}")
