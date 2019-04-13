@@ -43,6 +43,8 @@ function startGraph(systemName) {
     $("#systemsDropdownMenuButton")
         .text(systemName.value);
 
+    $("#system-options-menu-button").prop("disabled", false);
+
     $("#systemsDropdownMenu button.active")
         .removeClass("active")
         .css("pointer-events", "auto");

@@ -1,4 +1,4 @@
-package com.soselab.microservicegraphplatform;
+package com.soselab.microservicegraphplatform.services;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

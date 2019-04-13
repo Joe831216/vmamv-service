@@ -13,6 +13,10 @@ import java.util.Set;
 
 @NodeEntity
 public class Service {
+    public static final String LABEL_HEAVY_STRONG_UPPER_DEPENDENCY = "HeavyStrongUpperDependency";
+    public static final String LABEL_HEAVY_STRONG_LOWER_DEPENDENCY = "HeavyStrongLowerDependency";
+    public static final String LABEL_HEAVY_WEAK_UPPER_DEPENDENCY = "HeavyWeakUpperDependency";
+    public static final String LABEL_HEAVY_WEAK_LOWER_DEPENDENCY = "HeavyWeakLowerDependency";
 
     @GraphId
     private Long id;
@@ -87,8 +91,22 @@ public class Service {
         this.labels = labels;
     }
 
-    public void addLabel(String label) {
-        labels.add(label);
+    public boolean addLabel(String label) {
+        if (!labels.contains(label)) {
+            labels.add(label);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean removeLabel(String label) {
+        if (labels.contains(label)) {
+            labels.remove(label);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Relationship(type = "REGISTER", direction = Relationship.OUTGOING)

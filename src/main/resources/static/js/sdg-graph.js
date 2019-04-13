@@ -5,6 +5,10 @@ function BuildGraph(data) {
     const LABEL_NULLENDPOINT = "NullEndpoint";
     const LABEL_QUEUE = "Queue";
     const LABEL_OUTDATEDVERSION = "OutdatedVersion";
+    const LABEL_HEAVY_STRONG_UPPER_DEPENDENCY = "HeavyStrongUpperDependency";
+    const LABEL_HEAVY_STRONG_LOWER_DEPENDENCY = "HeavyStrongLowerDependency";
+    const LABEL_HEAVY_WEAK_UPPER_DEPENDENCY = "HeavyWeakUpperDependency";
+    const LABEL_HEAVY_WEAK_LOWER_DEPENDENCY = "HeavyWeakLowerDependency";
 
     const REL_OWN = "OWN";
     const REL_HTTPREQUEST = "HTTP_REQUEST";
@@ -28,6 +32,13 @@ function BuildGraph(data) {
     const COLOR_NULL = "#3a3a3a";
     const COLOR_QUEUE = "#85d18c";
     const COLOR_WARNING = "orange";
+
+    const HIGHLIGHT_LEVEL_NORMAL = "highlight";
+    const HIGHLIGHT_LEVEL_WARNING = "warning";
+    const HIGHLIGHT_LEVEL_ERROR = "error";
+
+    const NODELABEL_NULL = "<<Null>>";
+    const NODELABEL_OUTDATEDVER = "<<Outdated version>>";
 
     const NODE_SCALE = 1.5;
 
@@ -450,11 +461,33 @@ function BuildGraph(data) {
         // UPDATE old nodes
         node.transition(t);
 
-        node.filter(d => !d.highlight).classed("highlight", false);
-        node.filter(d => d.highlight).classed("highlight", true);
+        // Highlight
+        node.filter(d =>
+            !d.labels.includes(LABEL_OUTDATEDVERSION) ||
+            !d.labels.includes(LABEL_HEAVY_STRONG_UPPER_DEPENDENCY) ||
+            !d.labels.includes(LABEL_HEAVY_STRONG_LOWER_DEPENDENCY) ||
+            !d.labels.includes(LABEL_HEAVY_WEAK_UPPER_DEPENDENCY) ||
+            !d.labels.includes(LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)
+        ).classed(HIGHLIGHT_LEVEL_WARNING, false);
+        node.filter(d => !d.warning).classed(HIGHLIGHT_LEVEL_WARNING, false);
+        node.filter(d =>
+            d.labels.includes(LABEL_OUTDATEDVERSION) ||
+            d.labels.includes(LABEL_HEAVY_STRONG_UPPER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_STRONG_LOWER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_WEAK_UPPER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)
+        ).classed(HIGHLIGHT_LEVEL_WARNING, true);
+        node.filter(d => d.warning).classed(HIGHLIGHT_LEVEL_WARNING, true);
 
-        node.filter(d => !d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", false);
-        node.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", true);
+        node.filter(d => !d.labels.includes(LABEL_NULLSERVICE) && !d.labels.includes(LABEL_NULLENDPOINT))
+            .classed(HIGHLIGHT_LEVEL_ERROR, false);
+        node.filter(d => !d.error).classed(HIGHLIGHT_LEVEL_ERROR, false);
+        node.filter(d => d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT))
+            .classed(HIGHLIGHT_LEVEL_ERROR, true);
+        node.filter(d => d.error).classed(HIGHLIGHT_LEVEL_ERROR, true);
+
+        node.filter(d => !d.highlight).classed(HIGHLIGHT_LEVEL_NORMAL, false);
+        node.filter(d => d.highlight).classed(HIGHLIGHT_LEVEL_NORMAL, true);
 
         node.attr("fill", d => {
                 if (d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT)) {
@@ -481,11 +514,20 @@ function BuildGraph(data) {
             .attr("stroke-opacity", 0)
             .attr("fill-opacity", 0);
 
-        nodeEnter.transition(td)
+        nodeEnter.transition()
             .attr("stroke-opacity", 1)
             .attr("fill-opacity", 1);
 
-        nodeEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION)).classed("warning", true);
+        // Highlight
+        nodeEnter.filter(d =>
+            d.labels.includes(LABEL_OUTDATEDVERSION) ||
+            d.labels.includes(LABEL_HEAVY_STRONG_UPPER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_STRONG_LOWER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_WEAK_UPPER_DEPENDENCY) ||
+            d.labels.includes(LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)
+        ).classed(HIGHLIGHT_LEVEL_WARNING, true);
+        nodeEnter.filter(d => d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT))
+            .classed(HIGHLIGHT_LEVEL_ERROR, true);
 
         nodeEnter.filter(d => d.labels.includes(LABEL_SERVICE) || d.labels.includes(LABEL_ENDPOINT))
             .attr("d", d3.symbol()
@@ -528,7 +570,6 @@ function BuildGraph(data) {
                     return LABEL_QUEUE;
                 }
             });
-
 
         node = nodeEnter.merge(node);
 
@@ -602,57 +643,61 @@ function BuildGraph(data) {
             }
         });
 
-        let oldNullNodelabel = nodelabel.filter(d => {
-            return d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT);
-        });
+        let oldNullNodelabel = nodelabel.filter(d =>  d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT));
+        updateExceptionNodeLabel(oldNullNodelabel, NODELABEL_NULL);
 
-        oldNullNodelabel.append("rect")
-            .attr("class", "tag null-tag")
-            .attr("fill", "#dddddd")
-            .attr("fill-opacity", 0.5)
-            .attr("rx", 8)
-            .attr("ry", 8);
+        let oldOutDateVerNodeLabel = nodelabel.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION));
+        updateExceptionNodeLabel(oldOutDateVerNodeLabel, NODELABEL_OUTDATEDVER);
 
-        oldNullNodelabel.append("text")
-            .attr("class", "tag null-tag")
-            .attr("dx", 0)
-            .attr("dy", function (d) {
-                let texts = $(this.parentNode).find("text.tag");
-                let position = texts.length - 1;
-                if (d.labels.includes(LABEL_SERVICE)) {
-                    return 52 + position * 20;
-                } else if (d.labels.includes(LABEL_ENDPOINT)) {
-                    return 39 + position * 20;
-                }
-            })
-            .attr("fill-opacity", 1)
-            .style("fill", "#ce0000")
-            .text("<<Null>>");
+        function updateExceptionNodeLabel (nodeLabel, text) {
+            nodeLabel.append("rect")
+                .attr("class", "tag null-tag")
+                .attr("fill", "#dddddd")
+                .attr("fill-opacity", 0.5)
+                .attr("rx", 8)
+                .attr("ry", 8);
 
-        oldNullNodelabel.selectAll("rect.null-tag")
-            .attr("width", function() {
-                let text = d3.select(this.parentNode).select("text.null-tag").node();
-                return (text.getBBox().width + 8);
-            })
-            .attr("height", "16px")
-            .attr("x", function() {
-                let text = d3.select(this.parentNode).select("text.null-tag").node();
-                return (text.getBBox().width + 8) / -2;
-            })
-            .attr("y", function (d) {
-                let texts = $(this.parentNode).find("text.tag");
-                let position;
-                for (position = 0; position < texts.length; position++) {
-                    if (texts[position].textContent === "<<Null>>") {
-                        break;
+            nodeLabel.append("text")
+                .attr("class", "tag null-tag")
+                .attr("dx", 0)
+                .attr("dy", function (d) {
+                    let texts = $(this.parentNode).find("text.tag");
+                    let position = texts.length - 1;
+                    if (d.labels.includes(LABEL_SERVICE)) {
+                        return 53 + position * 20;
+                    } else if (d.labels.includes(LABEL_ENDPOINT)) {
+                        return 39 + position * 20;
                     }
-                }
-                if (d.labels.includes(LABEL_SERVICE)) {
-                    return 40 + position * 20;
-                } else if (d.labels.includes(LABEL_ENDPOINT)) {
-                    return 27 + position * 20;
-                }
-            });
+                })
+                .attr("fill-opacity", 1)
+                .style("fill", "#ce0000")
+                .text(text);
+
+            nodeLabel.selectAll("rect.null-tag")
+                .attr("width", function() {
+                    let text = d3.select(this.parentNode).select("text.null-tag").node();
+                    return (text.getBBox().width + 8);
+                })
+                .attr("height", "16px")
+                .attr("x", function() {
+                    let text = d3.select(this.parentNode).select("text.null-tag").node();
+                    return (text.getBBox().width + 8) / -2;
+                })
+                .attr("y", function (d) {
+                    let texts = $(this.parentNode).find("text.tag");
+                    let position;
+                    for (position = 0; position < texts.length; position++) {
+                        if (texts[position].textContent === text) {
+                            break;
+                        }
+                    }
+                    if (d.labels.includes(LABEL_SERVICE)) {
+                        return 40 + position * 20;
+                    } else if (d.labels.includes(LABEL_ENDPOINT)) {
+                        return 27 + position * 20;
+                    }
+                });
+        }
 
         // ENTER new nodelabels
         let nodelabelEnter = nodelabel.enter().append("g");
@@ -716,57 +761,61 @@ function BuildGraph(data) {
             }
         });
 
-        let nullNodelabel = nodelabelEnter.filter(d => {
-            return d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT);
-        });
+        let nullNodelabel = nodelabelEnter.filter(d => d.labels.includes(LABEL_NULLSERVICE) || d.labels.includes(LABEL_NULLENDPOINT));
+        addExceptionNodeLabel(nullNodelabel, NODELABEL_NULL);
 
-        nullNodelabel.append("rect")
-            .attr("class", "tag null-tag")
-            .attr("fill", "#dddddd")
-            .attr("fill-opacity", 0)
-            .attr("rx", 8)
-            .attr("ry", 8);
+        let outDateVerNodeLabel = nodelabelEnter.filter(d => d.labels.includes(LABEL_OUTDATEDVERSION));
+        addExceptionNodeLabel(outDateVerNodeLabel, NODELABEL_OUTDATEDVER);
 
-        nullNodelabel.append("text")
-            .attr("class", "tag null-tag")
-            .attr("dx", 0)
-            .attr("dy", function (d) {
-                let texts = $(this.parentNode).find("text.tag");
-                let position = texts.length - 1;
-                if (d.labels.includes(LABEL_SERVICE)) {
-                    return 52 + position * 20;
-                } else if (d.labels.includes(LABEL_ENDPOINT)) {
-                    return 39 + position * 20;
-                }
-            })
-            .attr("fill-opacity", 0)
-            .style("fill", "#ce0000")
-            .text("<<Null>>");
+        function addExceptionNodeLabel (nodeLabel, text) {
+            nodeLabel.append("rect")
+                .attr("class", "tag null-tag")
+                .attr("fill", "#dddddd")
+                .attr("fill-opacity", 0)
+                .attr("rx", 8)
+                .attr("ry", 8);
 
-        nullNodelabel.selectAll("rect.null-tag")
-            .attr("width", function() {
-                let text = d3.select(this.parentNode).select("text.null-tag").node();
-                return (text.getBBox().width + 8);
-            })
-            .attr("height", "16px")
-            .attr("x", function() {
-                let text = d3.select(this.parentNode).select("text.null-tag").node();
-                return (text.getBBox().width + 8) / -2;
-            })
-            .attr("y", function (d) {
-                let texts = $(this.parentNode).find("text.tag");
-                let position;
-                for (position = 0; position < texts.length; position++) {
-                    if (texts[position].textContent === "<<Null>>") {
-                        break;
+            nodeLabel.append("text")
+                .attr("class", "tag null-tag")
+                .attr("dx", 0)
+                .attr("dy", function (d) {
+                    let texts = $(this.parentNode).find("text.tag");
+                    let position = texts.length - 1;
+                    if (d.labels.includes(LABEL_SERVICE)) {
+                        return 53 + position * 20;
+                    } else if (d.labels.includes(LABEL_ENDPOINT)) {
+                        return 39 + position * 20;
                     }
-                }
-                if (d.labels.includes(LABEL_SERVICE)) {
-                    return 40 + position * 20;
-                } else if (d.labels.includes(LABEL_ENDPOINT)) {
-                    return 27 + position * 20;
-                }
-            });
+                })
+                .attr("fill-opacity", 0)
+                .style("fill", "#ce0000")
+                .text(text);
+
+            nodeLabel.selectAll("rect.null-tag")
+                .attr("width", function() {
+                    let text = d3.select(this.parentNode).select("text.null-tag").node();
+                    return (text.getBBox().width + 8);
+                })
+                .attr("height", "16px")
+                .attr("x", function() {
+                    let text = d3.select(this.parentNode).select("text.null-tag").node();
+                    return (text.getBBox().width + 8) / -2;
+                })
+                .attr("y", function (d) {
+                    let texts = $(this.parentNode).find("text.tag");
+                    let position;
+                    for (position = 0; position < texts.length; position++) {
+                        if (texts[position].textContent === text) {
+                            break;
+                        }
+                    }
+                    if (d.labels.includes(LABEL_SERVICE)) {
+                        return 40 + position * 20;
+                    } else if (d.labels.includes(LABEL_ENDPOINT)) {
+                        return 27 + position * 20;
+                    }
+                });
+        }
 
         nodelabelEnter.style("pointer-events", "none");
 
@@ -962,7 +1011,6 @@ function BuildGraph(data) {
 
     let nodeGraphBody = $("#node-graph .card-body").first();
     let graphList = $("#graph-list");
-    let graphCollapse = $("#graph-collapse");
     let graphProvider = $("#graph-providers");
     let graphConsumers = $("#graph-consumers");
     let graphUpperDependencyStrong = $("#graph-upper-dependency-strong");
@@ -981,6 +1029,12 @@ function BuildGraph(data) {
     let failureErrorCountInput = nodeSettingforms.find("#failure-error-count");
     let enableRestFailureAlertInput = nodeSettingforms.find("#enable-rest-failure-alert");
     let enableLogFailureAlertInput = nodeSettingforms.find("#enable-log-failure-alert");
+    let strongUpperDependencyCountInput = nodeSettingforms.find("#strong-upper-dependency-count");
+    let strongLowerDependencyCountInput = nodeSettingforms.find("#strong-lower-dependency-count");
+    let enableStrongDependencyAlertInput = nodeSettingforms.find("#enable-strong-dependency-alert");
+    let weakUpperDependencyCountInput = nodeSettingforms.find("#weak-upper-dependency-count");
+    let weakLowerDependencyCountInput = nodeSettingforms.find("#weak-lower-dependency-count");
+    let enableWeakDependencyAlertInput = nodeSettingforms.find("#enable-weak-dependency-alert");
 
     $("#failure-status-rate").on("input", function () {
         $("#failure-status-rate-text").val(this.value + "%");
@@ -1016,8 +1070,7 @@ function BuildGraph(data) {
 
         nodeInfoBody.empty();
 
-        //graphList.find(".active").removeClass("active");
-        graphCollapse.unbind();
+        graphList.find(".active").removeClass("active");
         graphProvider.unbind();
         graphConsumers.unbind();
         graphUpperDependencyStrong.unbind();
@@ -1096,22 +1149,6 @@ function BuildGraph(data) {
         }
 
         // Graph tab
-        graphCollapse.on("click", function () {
-            if (!$(this).hasClass("active")) {
-                $(this).parent().find(".active").removeClass("active");
-                $(this).addClass("active");
-                graphData = collapseData;
-                update(emptyData);
-                update(graphData);
-            } else {
-                $(this).removeClass("active");
-                clearHighlight();
-                graphData = data;
-                update(emptyData);
-                update(graphData);
-            }
-        });
-
         graphProvider.on("click", function () {
             if (!$(this).hasClass("active")) {
                 $(this).parent().find(".active").removeClass("active");
@@ -1224,9 +1261,11 @@ function BuildGraph(data) {
         }
 
         // Alert
+        // Init alert form
         fetch("/web-page/app/setting/" + d.appId)
             .then(response => response.json())
             .then(json => {
+                // Init failure alert inputs
                 if (!isNaN(json.failureStatusRate)) {
                     failureStatusRateInput.val(json.failureStatusRate * 100).trigger("input");
                 } else {
@@ -1246,6 +1285,38 @@ function BuildGraph(data) {
                     enableLogFailureAlertInput.prop("checked", true);
                 } else {
                     enableLogFailureAlertInput.prop("checked", false);
+                }
+                // Init strong dependency alert inputs
+                if (!isNaN(json.strongUpperDependencyCount)) {
+                    strongUpperDependencyCountInput.val(json.strongUpperDependencyCount);
+                } else {
+                    strongUpperDependencyCountInput.val("");
+                }
+                if (!isNaN(json.strongLowerDependencyCount)) {
+                    strongLowerDependencyCountInput.val(json.strongLowerDependencyCount);
+                } else {
+                    strongLowerDependencyCountInput.val("");
+                }
+                if (json.enableStrongDependencyAlert) {
+                    enableStrongDependencyAlertInput.prop("checked", true);
+                } else {
+                    enableStrongDependencyAlertInput.prop("checked", false);
+                }
+                // Init weak dependency alert inputs
+                if (!isNaN(json.weakUpperDependencyCount)) {
+                    weakUpperDependencyCountInput.val(json.weakUpperDependencyCount);
+                } else {
+                    weakUpperDependencyCountInput.val("");
+                }
+                if (!isNaN(json.weakLowerDependencyCount)) {
+                    weakLowerDependencyCountInput.val(json.weakLowerDependencyCount);
+                } else {
+                    weakLowerDependencyCountInput.val("");
+                }
+                if (json.enableWeakDependencyAlert) {
+                    enableWeakDependencyAlertInput.prop("checked", true);
+                } else {
+                    enableWeakDependencyAlertInput.prop("checked", false);
                 }
             }).catch(error => {
                 console.error("Error:", error)
@@ -1280,7 +1351,7 @@ function BuildGraph(data) {
                                 .attr("class", "toast-header text-white bg-warning")
                                 .prepend("<i class='fas fa-bug mr-2'></i>");
                             toast.find("strong").empty().append("Setting failed");
-                            toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" was failed.");
+                            toast.find(".toast-body").empty().append("The setting for <strong>" + d.appName + ":" + d.version + "</strong> was failed.");
                             toast.toast('show');
                             console.error("Error:", error)
                         })
@@ -1290,7 +1361,7 @@ function BuildGraph(data) {
                                 .attr("class", "toast-header text-white bg-primary")
                                 .prepend("<i class='fas fa-info-circle mr-2'></i>");
                             toast.find("strong").empty().append("Setting updated");
-                            toast.find(".toast-body").empty().append("The setting for \"" + d.appId + "\" has been successfully updated.");
+                            toast.find(".toast-body").empty().append("The setting for <strong>" + d.appName + ":" + d.version + "</strong> has been successfully updated.");
                             toast.toast('show');
                             console.log("Success", response);
                         });
@@ -1305,6 +1376,20 @@ function BuildGraph(data) {
 
     this.closeNodeCard = function() {
         cardClose.click();
-    }
+    };
+
+    // Collapse Graph
+    $("#graph-enable-collapse").on("change", function () {
+        if (this.checked) {
+            graphData = collapseData;
+            update(emptyData);
+            update(graphData);
+        } else {
+            clearHighlight();
+            graphData = data;
+            update(emptyData);
+            update(graphData);
+        }
+    });
 
 }

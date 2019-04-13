@@ -1,6 +1,5 @@
 package com.soselab.microservicegraphplatform.services;
 
-import com.soselab.microservicegraphplatform.SpringRestTool;
 import com.soselab.microservicegraphplatform.bean.actuators.trace.Trace;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.Status;

@@ -3,7 +3,6 @@ package com.soselab.microservicegraphplatform.services;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Ints;
-import com.soselab.microservicegraphplatform.SpringRestTool;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpApplication;
 import com.soselab.microservicegraphplatform.bean.mgp.MgpInstance;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
@@ -69,10 +68,14 @@ public class RefreshScheduledTask {
         Map<String, Boolean> systemIsUpdatedMap = updateGraphDB();
         systemIsUpdatedMap.forEach((systemName, isUpdated) -> {
             if (isUpdated) {
-                graphJson.put(systemName, generalRepository.getSystemGraphJson(systemName));
-                webPageController.sendGraph(systemName, graphJson.get(systemName));
+                updateGraphJson(systemName);
             }
         });
+    }
+
+    private void updateGraphJson(String systemName) {
+        graphJson.put(systemName, generalRepository.getSystemGraphJson(systemName));
+        webPageController.sendGraph(systemName, graphJson.get(systemName));
     }
 
     public String getGraphJson(String systemName) {
@@ -152,7 +155,7 @@ public class RefreshScheduledTask {
                         addDependencies(newAppsMap, appSwaggers);
 
                         boolean appsUpdated = updateServices(updateAppsMap);
-                        removeServices(removeAppsSet);
+                        removeServices(systemName, removeAppsSet);
 
                         // If the graph was be updated then return true.
                         if (newAppsMap.size() > 0 || removeAppsSet.size() > 0 || appsUpdated) {
@@ -166,7 +169,7 @@ public class RefreshScheduledTask {
                                 for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: newAppsMap.entrySet()) {
                                     String appName = entry.getValue().getKey().getAppName();
                                     String version = entry.getValue().getKey().getVersion();
-                                    content += "\"" + appName + " : " + version + "\"";
+                                    content += "<strong>" + appName + " : " + version + "</strong>";
                                     if (index != newAppsMap.size() - 1) {
                                         content += "<br>";
                                     } else {
@@ -187,7 +190,7 @@ public class RefreshScheduledTask {
                                     String[] appInfo = appId.split(":");
                                     String appName = appInfo[1];
                                     String version = appInfo[2];
-                                    content += "\"" + appName + " : " + version + "\"";
+                                    content += "<strong>" + appName + " : " + version + "</strong>";
                                     if (index > newAppsMap.size() - 1) {
                                         content += "<br>";
                                     }
@@ -196,11 +199,12 @@ public class RefreshScheduledTask {
                                 webPageController.sendNotification(systemName, notification);
                             }
 
+                            checkDependenciesOfAppsInSystem(systemName);
+
                             updated.put(systemName, true);
                         } else {
                             updated.put(systemName, false);
                         }
-                        monitorService.checkMetricsOfAppsInSystem(systemName);
                     } catch (ResourceAccessException e) {
                         logger.error(e.getMessage(), e);
                     }
@@ -375,8 +379,8 @@ public class RefreshScheduledTask {
                     WebNotification notification = new WebNotification();
                     notification.setLevel(WebNotification.LEVEL_WARNING);
                     notification.setTitle("Waring");
-                    notification.setContent("Found newer patch version: " +
-                            mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " -> " + latestPathApp.getKey().getVersion());
+                    notification.setContent("Found newer patch version: <strong>" +
+                            mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " → " + latestPathApp.getKey().getVersion() + "</strong>");
                     webPageController.sendNotification(mgpApplication.getSystemName(), notification);
                     logger.info("Found newer patch version: " + mgpApplication.getAppId() + " -> " + latestPathApp.getKey().getVersion());
                     return latestPathApp.getKey();
@@ -402,8 +406,8 @@ public class RefreshScheduledTask {
                                 WebNotification notification = new WebNotification();
                                 notification.setLevel(WebNotification.LEVEL_WARNING);
                                 notification.setTitle("Waring");
-                                notification.setContent("Found older patch version: " +
-                                        mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " <- " + otherVerService.getVersion());
+                                notification.setContent("Found older patch version: <strong>" +
+                                        mgpApplication.getAppName() + ":" + mgpApplication.getVersion() + " ← " + otherVerService.getVersion() + "</strong>");
                                 webPageController.sendNotification(mgpApplication.getSystemName(), notification);
                                 logger.info("Found older patch version: " + mgpApplication.getAppId() + " -> " + otherVerService.getVersion());
                             }
@@ -779,7 +783,7 @@ public class RefreshScheduledTask {
     }
 
     // Remove apps that are not in eureka's app list
-    private void removeServices(Set<String> removeAppsSet) {
+    private void removeServices(String systemName, Set<String> removeAppsSet) {
         for (String appId : removeAppsSet) {
             if (serviceRepository.isBeDependentByAppId(appId)) {
                 serviceRepository.setNumToZeroAndAddNullLabelWithEndpointsByAppId(appId);
@@ -789,10 +793,136 @@ public class RefreshScheduledTask {
             logger.info("Remove service: " + appId);
         }
         if (removeAppsSet.size() > 0) {
+            WebNotification notification = new WebNotification();
+            notification.setLevel(WebNotification.LEVEL_INFO);
+            notification.setTitle("Services down");
+            String content = "";
+            int index = 0;
+            for (String appId : removeAppsSet) {
+                String appName = appId.split(":")[1];
+                String version = appId.split(":")[2];
+                content += "<strong>" + appName + " : " + version + "</strong>";
+                if (index != removeAppsSet.size() - 1) {
+                    content += "<br>";
+                }
+            }
+            notification.setContent(content);
+            webPageController.sendNotification(systemName, notification);
+        }
+
+
+        if (removeAppsSet.size() > 0) {
             endpointRepository.deleteUselessNullEndpoint();
             serviceRepository.deleteUselessNullService();
             queueRepository.deleteUselessQueues();
             serviceRepository.removeUselessOutdatedVersionLabel();
+        }
+    }
+
+    private void checkDependenciesOfAppsInSystem(String systemName) {
+        List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
+        for (Service service : services) {
+            checkDependenciesOfApp(service);
+        }
+    }
+
+    private boolean checkDependenciesOfApp(Service service) {
+        String systemName = service.getSystemName();
+        boolean update = false;
+        Setting setting = service.getSetting();
+        String notiTitle = "Found exception";
+        if (setting.getEnableStrongDependencyAlert()) {
+            if (setting.getStrongUpperDependencyCount() != null) {
+                Long strongUpperDependencyCount = generalRepository.getStrongUpperDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
+                if (strongUpperDependencyCount != null && strongUpperDependencyCount > setting.getStrongUpperDependencyCount()) {
+                    if (service.addLabel(Service.LABEL_HEAVY_STRONG_UPPER_DEPENDENCY)) {
+                        update = true;
+                    }
+                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
+                            "</strong> exceeded the threshold of <strong>strong upper dependency count</strong>: current value = " +
+                            strongUpperDependencyCount + ", threshold = " + setting.getStrongUpperDependencyCount();
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
+                    webPageController.sendNotification(systemName, notification);
+                    logger.info("Found heavy strong upper dependency exception: " + service.getAppId());
+                } else {
+                    if (service.removeLabel(Service.LABEL_HEAVY_STRONG_UPPER_DEPENDENCY)) {
+                        update = true;
+                    }
+                }
+            }
+            if (setting.getStrongLowerDependencyCount() != null) {
+                Long strongLowerDependencyCount = generalRepository.getStrongLowerDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
+                if (strongLowerDependencyCount != null && strongLowerDependencyCount > setting.getStrongLowerDependencyCount()) {
+                    if (service.addLabel(Service.LABEL_HEAVY_STRONG_LOWER_DEPENDENCY)) {
+                        update = true;
+                    }
+                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
+                            "</strong> exceeded the threshold of <strong>strong lower dependency count</strong>: current value = " +
+                            strongLowerDependencyCount + ", threshold = " + setting.getStrongLowerDependencyCount();
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
+                    webPageController.sendNotification(systemName, notification);
+                    logger.info("Found heavy strong lower dependency exception: " + service.getAppId());
+                } else {
+                    if (service.removeLabel(Service.LABEL_HEAVY_STRONG_LOWER_DEPENDENCY)) {
+                        update = true;
+                    }
+                }
+            }
+        } else if (service.removeLabel(Service.LABEL_HEAVY_STRONG_UPPER_DEPENDENCY) ||
+                service.removeLabel(Service.LABEL_HEAVY_STRONG_LOWER_DEPENDENCY)){
+            update = true;
+        }
+        if (setting.getEnableWeakDependencyAlert()) {
+            if (setting.getWeakUpperDependencyCount() != null) {
+                Long weakUpperDependencyCount = generalRepository.getWeakUpperDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
+                if (weakUpperDependencyCount != null && weakUpperDependencyCount > setting.getWeakUpperDependencyCount()) {
+                    if (service.addLabel(Service.LABEL_HEAVY_WEAK_UPPER_DEPENDENCY)) {
+                        update = true;
+                    }
+                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
+                            "</strong> exceeded the threshold of <strong>weak upper dependency count</strong>: current value = " +
+                            weakUpperDependencyCount + ", threshold = " + setting.getWeakUpperDependencyCount();
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
+                    webPageController.sendNotification(systemName, notification);
+                    logger.info("Found heavy weak upper dependency exception: " + service.getAppId());
+                } else {
+                    if (service.removeLabel(Service.LABEL_HEAVY_WEAK_UPPER_DEPENDENCY)) {
+                        update = true;
+                    }
+                }
+            }
+            if (setting.getWeakLowerDependencyCount() != null) {
+                Long weakLowrDependencyCount = generalRepository.getWeakLowerDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
+                if (weakLowrDependencyCount != null && weakLowrDependencyCount > setting.getWeakLowerDependencyCount()) {
+                    if (service.addLabel(Service.LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)) {
+                        update = true;
+                    }
+                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
+                            "</strong> exceeded the threshold of <strong>weak lower dependency count</strong>: current value = " +
+                            weakLowrDependencyCount + ", threshold = " + setting.getWeakLowerDependencyCount();
+                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
+                    webPageController.sendNotification(systemName, notification);
+                    logger.info("Found heavy weak lower dependency exception: " + service.getAppId());
+                } else {
+                    if (service.removeLabel(Service.LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)) {
+                        update = true;
+                    }
+                }
+            }
+        } else if (service.removeLabel(Service.LABEL_HEAVY_WEAK_UPPER_DEPENDENCY) ||
+                service.removeLabel(Service.LABEL_HEAVY_WEAK_LOWER_DEPENDENCY)){
+            update = true;
+        }
+        if (update) {
+            serviceRepository.save(service);
+        }
+        return update;
+    }
+
+    public void appSettingUpdatedEvent(String appId) {
+        Service service = serviceRepository.findByAppIdWithSettingNotNull(appId);
+        if (service != null && checkDependenciesOfApp(service)) {
+            updateGraphJson(service.getSystemName());
         }
     }
 

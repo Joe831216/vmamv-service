@@ -38,12 +38,22 @@ public interface GeneralRepository extends Neo4jRepository {
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getStrongUpperDependencyChainById(@Param("id") Long id);
 
+    @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes " +
+            "RETURN size([s IN nodes WHERE s:Service]) - 1")
+    Long getStrongUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes, relationships " +
             "WITH [node in nodes | node {id:id(node)}] as nodes, " +
             "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getWeakUpperDependencyChainById(@Param("id") Long id);
+
+    @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes " +
+            "RETURN size([s IN nodes WHERE s:Service]) - 1")
+    Long getWeakUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
@@ -52,12 +62,22 @@ public interface GeneralRepository extends Neo4jRepository {
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getStrongLowerDependencyChainById(@Param("id") Long id);
 
+    @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes " +
+            "RETURN size([s IN nodes WHERE s:Service]) - 1")
+    Long getStrongLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
             "WITH [node in nodes | node {id:id(node)}] as nodes, " +
             "[rel in relationships | rel {type:type(rel), source:id(startNode(rel)), target:id(endNode(rel))}] as rels " +
             "RETURN apoc.convert.toJson({nodes:nodes, links:rels})")
     String getWeakLowerDependencyChainById(@Param("id") Long id);
+
+    @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
+            "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes " +
+            "RETURN size([s IN nodes WHERE s:Service]) - 1")
+    Long getWeakLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id}" +
             "OPTIONAL MATCH (n)-[:HTTP_REQUEST]->(p1) " +
