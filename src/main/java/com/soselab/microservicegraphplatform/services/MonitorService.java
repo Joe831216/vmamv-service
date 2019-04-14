@@ -3,6 +3,8 @@ package com.soselab.microservicegraphplatform.services;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.Status;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
+import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureErrorNotification;
+import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureStatusRateWarningNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
 import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
@@ -31,6 +33,8 @@ public class MonitorService {
     private RestInfoAnalyzer restInfoAnalyzer;
     @Autowired
     private WebPageController webPageController;
+    @Autowired
+    private WebNotificationService notificationService;
 
     public void checkAlert(String systemName) {
         List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
@@ -38,7 +42,6 @@ public class MonitorService {
     }
 
     public void checkMetricsOfAppsInSystem (String systemName, List<Service> services) {
-        String notiTitle = "Found exception";
         for (Service service : services) {
             Setting setting = service.getSetting();
             // Using log (Elasticsearch) metrics
@@ -48,19 +51,16 @@ public class MonitorService {
                 Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
                         (metrics, setting.getFailureStatusRate());
                 if (failureStatusRateResult.getKey()) {
-                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                            "</strong> exceeded the threshold of failure status rate: current value (Elasticsearch) = " +
-                            failureStatusRateResult.getValue() * 100 + "%, threshold = " + setting.getFailureStatusRate() * 100 + "%";
-                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                    webPageController.sendNotification(systemName, notification);
+                    WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
+                            service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
+                            FailureStatusRateWarningNotification.TYPE_ELASTICSEARCH);
+                    notificationService.pushNotificationToSystem(systemName, notification);
                 }
                 // Error
                 if (setting.getFailureErrorCount() != null && metrics.getErrorCount() > setting.getFailureErrorCount()) {
-                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                            "</strong> exceeded the threshold of error count: current value (Elasticsearch) = " +
-                            metrics.getErrorCount() + ", threshold = " + setting.getFailureErrorCount();
-                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                    webPageController.sendNotification(systemName, notification);
+                    WebNotification notification = new FailureErrorNotification(service.getAppName(), service.getVersion(),
+                            metrics.getErrorCount(), setting.getFailureErrorCount(), FailureErrorNotification.TYPE_ELASTICSEARCH);
+                    notificationService.pushNotificationToSystem(systemName, notification);
                     logger.info("Found service " + service.getAppId() + " exception: error count = " +
                             metrics.getErrorCount() + " (threshold = " + setting.getFailureErrorCount() + ")");
                 }
@@ -71,66 +71,14 @@ public class MonitorService {
                 Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
                         (metrics, setting.getFailureStatusRate());
                 if (failureStatusRateResult.getKey()) {
-                    String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                            "</strong> exceeded the threshold of failure status rate: current value (Spring Actuator) = " +
-                            failureStatusRateResult.getValue() * 100 + "%, threshold = " + setting.getFailureStatusRate() * 100 + "%";
-                    WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                    webPageController.sendNotification(systemName, notification);
+                    WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
+                            service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
+                            FailureStatusRateWarningNotification.TYPE_ACTUATOR);
+                    notificationService.pushNotificationToSystem(systemName, notification);
                 }
             }
         }
     }
-
-    /*public void checkDependencysOfAppsInSystem (String systemName, List<Service> services) {
-        String notiTitle = "Found exception";
-        for (Service service : services) {
-            Setting setting = service.getSetting();
-            if (setting.getEnableStrongDependencyAlert()) {
-                if (setting.getStrongUpperDependencyCount() != null) {
-                    Long strongUpperDependencyCount = generalRepository.getStrongUpperDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
-                    if (strongUpperDependencyCount != null && strongUpperDependencyCount > setting.getStrongUpperDependencyCount()) {
-                        String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                                "</strong> exceeded the threshold of <strong>strong upper dependency count</strong>: current value = " +
-                                strongUpperDependencyCount + ", threshold = " + setting.getStrongUpperDependencyCount();
-                        WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                        webPageController.sendNotification(systemName, notification);
-                    }
-                }
-                if (setting.getStrongLowerDependencyCount() != null) {
-                    Long strongLowerDependencyCount = generalRepository.getStrongLowerDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
-                    if (strongLowerDependencyCount != null && strongLowerDependencyCount > setting.getStrongLowerDependencyCount()) {
-                        String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                                "</strong> exceeded the threshold of <strong>strong lower dependency count</strong>: current value = " +
-                                strongLowerDependencyCount + ", threshold = " + setting.getStrongLowerDependencyCount();
-                        WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                        webPageController.sendNotification(systemName, notification);
-                    }
-                }
-            }
-            if (setting.getEnableWeakDependencyAlert()) {
-                if (setting.getWeakUpperDependencyCount() != null) {
-                    Long weakUpperDependencyCount = generalRepository.getWeakUpperDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
-                    if (weakUpperDependencyCount != null && weakUpperDependencyCount > setting.getWeakUpperDependencyCount()) {
-                        String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                                "</strong> exceeded the threshold of <strong>weak upper dependency count</strong>: current value = " +
-                                weakUpperDependencyCount + ", threshold = " + setting.getWeakUpperDependencyCount();
-                        WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                        webPageController.sendNotification(systemName, notification);
-                    }
-                }
-                if (setting.getWeakLowerDependencyCount() != null) {
-                    Long weakLowrDependencyCount = generalRepository.getWeakLowerDependencyServiceCountByIdAndSystemName(service.getId(), systemName);
-                    if (weakLowrDependencyCount != null && weakLowrDependencyCount > setting.getWeakLowerDependencyCount()) {
-                        String content = "<strong>" + service.getAppName() + ":" + service.getVersion() +
-                                "</strong> exceeded the threshold of <strong>weak lower dependency count</strong>: current value = " +
-                                weakLowrDependencyCount + ", threshold = " + setting.getWeakLowerDependencyCount();
-                        WebNotification notification = new WebNotification(WebNotification.LEVEL_WARNING, notiTitle, content);
-                        webPageController.sendNotification(systemName, notification);
-                    }
-                }
-            }
-        }
-    }*/
 
     // Pair<isExceededThreshold, failureStatusRate>
     private Pair<Boolean, Float> isFailureStatusRateExceededThreshold(AppMetrics metrics, float threshold) {

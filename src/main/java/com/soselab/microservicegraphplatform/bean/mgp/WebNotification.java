@@ -1,6 +1,10 @@
 package com.soselab.microservicegraphplatform.bean.mgp;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.time.LocalDateTime;
+import java.util.Date;
 
 public class WebNotification {
 
@@ -10,17 +14,21 @@ public class WebNotification {
     public static final String LEVEL_WARNING = "warning";
     @JsonIgnore
     public static final String LEVEL_ERROR = "error";
+
     private String level;
     private String title;
     private String content;
+    @JsonFormat(pattern = "yyyy-MM-dd hh:mm:ss")
+    private LocalDateTime dateTime;
 
     public WebNotification() {
     }
 
-    public WebNotification(String level, String title, String content) {
+    public WebNotification(String level, String title, String content, LocalDateTime dateTime) {
         this.level = level;
         this.title = title;
         this.content = content;
+        this.dateTime = dateTime;
     }
 
     public String getLevel() {
@@ -45,6 +53,14 @@ public class WebNotification {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public LocalDateTime getDateTime() {
+        return dateTime;
+    }
+
+    public void setDateTime(LocalDateTime dateTime) {
+        this.dateTime = dateTime;
     }
 
 }

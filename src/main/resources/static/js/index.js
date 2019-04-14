@@ -2,7 +2,8 @@ const NOTI_LEVEL_INFO = "info";
 const NOTI_LEVEL_WARNING = "warning";
 const NOTI_LEVEL_ERROR = "error";
 
-let toast = $(".toast");
+let toast = $("#toast-div .toast");
+let notificationsDropdown = $("#notificationsMenuLink").parent().find(".dropdown-menu");
 let stompClient = null;
 
 $(document).ready( function () {
@@ -74,6 +75,57 @@ function startGraph(systemName) {
         }
     });
 
+    let notificationCount = 0;
+
+    function createNotificationDropdownItem(notification) {
+        let headerClass = "toast-header ";
+        let icon;
+        if (notification.level === NOTI_LEVEL_INFO) {
+            headerClass += "text-white bg-primary";
+            icon = "<i class='fas fa-info-circle mr-2'></i>";
+        } else if (notification.level === NOTI_LEVEL_WARNING) {
+            headerClass += "text-white bg-warning";
+            icon = "<i class='fas fa-exclamation-triangle mr-2'></i>";
+        } else if (notification.level === NOTI_LEVEL_ERROR) {
+            headerClass += "text-white bg-danger";
+            icon = "<i class='fas fa-bug mr-2'></i>";
+        }
+
+        return "<button class='dropdown-item'>" +
+            "<div class='toast show'>" +
+            "<div class='" + headerClass + "'>" +
+            icon +
+            "<strong class='mr-auto'>" + notification.title + "</strong>" +
+            "<small>" + notification.dateTime + "</small>" +
+            "</div>" +
+            "<div class='toast-body'>" + notification.content + "</div>" +
+            "</div>" +
+            "</button>";
+    }
+
+    function removeNotificationDropdownItem() {
+        if (notificationCount > 100) {
+            notificationsDropdown.find(".dropdown-item:gt(99)").remove();
+        }
+    }
+
+    // Fetch current system notifications
+    fetch("/web-page/notification/" + systemName.value)
+        .then(response => response.json())
+        .then(notifications => {
+            notificationCount += notifications.length;
+            notificationsDropdown.empty();
+            notifications.forEach(notification => {
+                let item = $(createNotificationDropdownItem(notification));
+                if (notification.appName && notification.version) {
+                    item.click(function () {
+                        graph.clickNodeByNameAndVersion(notification.appName, notification.version)
+                    });
+                }
+                notificationsDropdown.append(item);
+            });
+        });
+
     // Subscribe notification topic
     subscribeNotify = stompClient.subscribe("/topic/notification/" + systemName.value, function (message) {
         let data = JSON.parse(message.body);
@@ -94,7 +146,18 @@ function startGraph(systemName) {
         toast.find("strong").empty().append(data.title);
         toast.find(".toast-body").empty().append(data.content);
         toast.toast('show');
+
+        notificationCount++;
+        let item = $(createNotificationDropdownItem(data));
+        if (data.appName && data.version) {
+            item.click(function () {
+                graph.clickNodeByNameAndVersion(data.appName, data.version)
+            });
+        }
+        notificationsDropdown.prepend(item);
+        removeNotificationDropdownItem();
     });
+
     stompClient.send("/mgp/graph/" + systemName.value);
 }
 

@@ -127,6 +127,16 @@
 			fill: orange;
 		}
 
+		.notification.dropdown-menu {
+			/*display:inline-block;*/
+			width: fit-content;
+		}
+
+		.notification.dropdown-menu .dropdown-item {
+			word-wrap: break-word;
+			white-space: normal;
+		}
+
 	</style>
 	<script src="/webjars/sockjs-client/sockjs.min.js"></script>
 	<script src="/webjars/stomp-websocket/stomp.min.js"></script>
@@ -254,20 +264,28 @@
 								Graph options
 							</a>
 							<div class="dropdown-menu" aria-labelledby="graphOptionsMenuLink">
-								<form>
-									<div class="custom-control custom-switch ml-3">
-										<input name="enableRestFailureAlert" type="checkbox" class="custom-control-input" id="graph-enable-collapse">
-										<label class="custom-control-label" for="graph-enable-collapse">Collapse</label>
-									</div>
-								</form>
+								<div class="dropdown-item">
+									<form>
+										<div class="custom-control custom-switch ml-3">
+											<input name="enableRestFailureAlert" type="checkbox" class="custom-control-input" id="graph-enable-collapse">
+											<label class="custom-control-label" for="graph-enable-collapse">Collapse</label>
+										</div>
+									</form>
+								</div>
 							</div>
 						</div>
 						<li class="nav-item">
 							<a class="nav-link" id="download-graph" href="#" download="graph.png">Download graph</a>
 						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">Notifications</a>
-						</li>
+						<div class="nav-item dropdown">
+							<a class="nav-link dropdown-toggle" href="#" id="notificationsMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								Notifications
+							</a>
+							<div class="dropdown-menu notification" aria-labelledby="notificationsMenuLink">
+								<button class="dropdown-item">
+								</button>
+							</div>
+						</div>
 					</ul>
 				</div>
 			</nav>

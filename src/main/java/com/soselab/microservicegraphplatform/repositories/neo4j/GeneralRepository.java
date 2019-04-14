@@ -41,7 +41,7 @@ public interface GeneralRepository extends Neo4jRepository {
     @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes " +
             "RETURN size([s IN nodes WHERE s:Service]) - 1")
-    Long getStrongUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+    Integer getStrongUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes, relationships " +
@@ -53,7 +53,7 @@ public interface GeneralRepository extends Neo4jRepository {
     @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|HTTP_REQUEST>|AMQP_PUBLISH>|AMQP_SUBSCRIBE>\"}) YIELD nodes " +
             "RETURN size([s IN nodes WHERE s:Service]) - 1")
-    Long getWeakUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+    Integer getWeakUpperDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
@@ -65,7 +65,7 @@ public interface GeneralRepository extends Neo4jRepository {
     @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN>|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes " +
             "RETURN size([s IN nodes WHERE s:Service]) - 1")
-    Long getStrongLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+    Integer getStrongLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes, relationships " +
@@ -77,7 +77,7 @@ public interface GeneralRepository extends Neo4jRepository {
     @Query("MATCH (n {systemName:{systemName}}) WHERE ID(n) = {id} " +
             "CALL apoc.path.subgraphAll(n, {relationshipFilter:\"OWN|<HTTP_REQUEST|<AMQP_PUBLISH|<AMQP_SUBSCRIBE\"}) YIELD nodes " +
             "RETURN size([s IN nodes WHERE s:Service]) - 1")
-    Long getWeakLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
+    Integer getWeakLowerDependencyServiceCountByIdAndSystemName(@Param("id") Long id, @Param("systemName") String systemName);
 
     @Query("MATCH (n) WHERE ID(n) = {id}" +
             "OPTIONAL MATCH (n)-[:HTTP_REQUEST]->(p1) " +

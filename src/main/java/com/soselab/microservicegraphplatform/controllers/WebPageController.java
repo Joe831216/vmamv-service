@@ -2,19 +2,15 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.soselab.microservicegraphplatform.services.SpringRestTool;
+import com.soselab.microservicegraphplatform.services.*;
 import com.soselab.microservicegraphplatform.bean.mgp.AppSetting;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
 import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.repositories.neo4j.ServiceRepository;
 import com.soselab.microservicegraphplatform.repositories.neo4j.SettingRepository;
-import com.soselab.microservicegraphplatform.services.LogAnalyzer;
-import com.soselab.microservicegraphplatform.services.MonitorService;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.repositories.neo4j.GeneralRepository;
-import com.soselab.microservicegraphplatform.services.RefreshScheduledTask;
-import com.soselab.microservicegraphplatform.services.RestInfoAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +36,8 @@ public class WebPageController {
     private SettingRepository settingRepository;
     @Autowired
     private RefreshScheduledTask refreshScheduledTask;
+    @Autowired
+    private WebNotificationService notificationService;
     @Autowired
     private SpringRestTool springRestTool;
     @Autowired
@@ -172,6 +170,11 @@ public class WebPageController {
 
     public void sendGraph(String systemName, String data) {
         messagingTemplate.convertAndSend("/topic/graph/" + systemName, data);
+    }
+
+    @GetMapping("/notification/{systemName}")
+    public List<WebNotification> getSystemNotifications(@PathVariable("systemName") String systemName) {
+        return notificationService.getNotificationsOfSystem(systemName);
     }
 
     public void sendNotification(String systemName, WebNotification notification) {
