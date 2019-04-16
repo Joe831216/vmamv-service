@@ -37,10 +37,65 @@ function connectSocket() {
     });
 }
 
+let addStyle = function(children) {
+    for (let i = 0; i < children.length; i++) {
+        let child = children[i];
+        if (child instanceof Element) {
+            let cssText = '';
+            let computedStyle = window.getComputedStyle(child, null);
+            for (let i = 0; i < computedStyle.length; i++) {
+                let prop = computedStyle[i];
+                cssText += prop + ':' + computedStyle.getPropertyValue(prop) + ';';
+            }
+            child.setAttribute('style', cssText);
+            addStyle(child.childNodes);
+        }
+    }
+};
+
+let downloadGraphLink =  $("#download-graph");
+
+downloadGraphLink.ready = false;
+downloadGraphLink.click(function () {
+    if (!downloadGraphLink.ready) {
+        event.preventDefault();
+        graph.stopSimulation();
+        let svg = document.querySelector("#canvas").cloneNode(true);
+        document.body.appendChild(svg);
+        addStyle(svg.childNodes);
+        html2canvas(svg).then(canvas => {
+            svg.remove();
+            graph.restartSimulation();
+            downloadGraphLink.attr("href", canvas.toDataURL("image/png"), 1.0);
+            let dt = new Date();
+            downloadGraphLink.attr("download", "SDG_" + startGraph.systemName + "_" +  dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate() + ".png");
+            downloadGraphLink.ready = true;
+            this.click();
+        });
+    } else {
+        downloadGraphLink.ready = false;
+    }
+});
+
+function exportSVG() {
+    const svg = document.querySelector("#graph").cloneNode(true);
+    document.body.appendChild(svg);
+    const g = svg.querySelector("g");
+    svg.setAttribute("width", g.getBBox().width);
+    svg.setAttribute("height", g.getBBox().height);
+    const svgAsXML = (new XMLSerializer).serializeToString(svg);
+    const svgData = `data:image/svg+xml,${encodeURIComponent(svgAsXML)}`;
+    downloadGraphLink.attr("href", svgData);
+    downloadGraphLink.attr("download", "graph.svg");
+}
+
 let subscribeGraph = null;
 let subscribeNotify = null;
 let graph = null;
+
 function startGraph(systemName) {
+    startGraph.systemName = systemName.value;
+
     $("#systemsDropdownMenuButton")
         .text(systemName.value);
 

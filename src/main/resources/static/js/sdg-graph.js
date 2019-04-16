@@ -1394,6 +1394,14 @@ function BuildGraph(data) {
 
     this.clickNodeByNameAndVersion = function(appName, version) {
         node.filter(d => d.appName === appName && d.version === version).dispatch("click");
-    }
+    };
+
+    this.stopSimulation = function () {
+        simulation.stop();
+    };
+
+    this.restartSimulation = function () {
+        simulation.restart();
+    };
 
 }
