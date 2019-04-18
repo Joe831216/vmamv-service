@@ -40,4 +40,24 @@ public class AppMetrics {
     public void setErrorCount(long errorCount) {
         this.errorCount = errorCount;
     }
+
+    public float getFailureStatusRate() {
+        float failureStatusRate = 1;
+        for (Status status : this.statuses) {
+            if (status.getCode() == 200) {
+                failureStatusRate -= status.getRatio();
+                break;
+            }
+        }
+        return failureStatusRate;
+    }
+
+    public int getFailureStatusSamplesNum() {
+        int count = 0;
+        for (Status status : this.statuses) {
+            count += status.getCount();
+        }
+        return count;
+    }
+
 }

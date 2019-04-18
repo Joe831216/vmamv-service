@@ -1,8 +1,8 @@
 package com.soselab.microservicegraphplatform.services;
 
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
-import com.soselab.microservicegraphplatform.bean.mgp.Status;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
+import com.soselab.microservicegraphplatform.bean.mgp.monitor.FailureStatusRateSPC;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureErrorNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureStatusRateWarningNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
@@ -35,15 +35,21 @@ public class MonitorService {
     private WebPageController webPageController;
     @Autowired
     private WebNotificationService notificationService;
+    private Map<String, FailureStatusRateSPC> failureStatusRateSPCMap = new HashMap<>();
 
-    public void checkAlert(String systemName) {
-        List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
-        checkMetricsOfAppsInSystem (systemName, services);
+    public void runScheduled(String systemName) {
+        //List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
+        List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
+        checkAlert(systemName, services);
+        updateSPCData(systemName, services);
     }
 
-    public void checkMetricsOfAppsInSystem (String systemName, List<Service> services) {
+    public void checkAlert(String systemName, List<Service> services) {
         for (Service service : services) {
             Setting setting = service.getSetting();
+            if (setting == null) {
+                continue;
+            }
             // Using log (Elasticsearch) metrics
             if (setting.getEnableLogFailureAlert()) {
                 AppMetrics metrics = logAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion());
@@ -82,14 +88,50 @@ public class MonitorService {
 
     // Pair<isExceededThreshold, failureStatusRate>
     private Pair<Boolean, Float> isFailureStatusRateExceededThreshold(AppMetrics metrics, float threshold) {
-        float failureStatusRate = 1;
-        for (Status status : metrics.getStatuses()) {
-            if (status.getCode() == 200) {
-                failureStatusRate -= status.getRatio();
-                break;
+        float failureStatusRate = metrics.getFailureStatusRate();
+        return new ImmutablePair<>(failureStatusRate > threshold, failureStatusRate);
+    }
+
+    public FailureStatusRateSPC getFailureStatusRateSPC(String systemName) {
+        return failureStatusRateSPCMap.get(systemName);
+    }
+
+    private void updateSPCData(String systemName, List<Service> services) {
+        Map<String, AppMetrics> metricsMap = new HashMap<>();
+        for (Service service : services) {
+            metricsMap.put(service.getAppName() + ":" + service.getVersion(), logAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion()));
+        }
+        FailureStatusRateSPC failureStatusRateSPC = updateFailureStatusRateSPC(metricsMap);
+        //logger.info(systemName + " failure status rate control chart -> CL: " + cl + ", UCL: " + ucl + ", LCL: " + lcl);
+        webPageController.sendFailureStatusRateSPC(systemName, failureStatusRateSPC);
+        failureStatusRateSPCMap.put(systemName, failureStatusRateSPC);
+    }
+
+    private FailureStatusRateSPC updateFailureStatusRateSPC(Map<String, AppMetrics> metricsMap) {
+        float rateCount = 0;
+        float samplesGroupNum = 0;
+        long samplesCount = 0;
+        Map<String, Float> rates = new HashMap<>();
+        for (Map.Entry<String, AppMetrics> entry : metricsMap.entrySet()) {
+            String app = entry.getKey();
+            AppMetrics metrics = entry.getValue();
+            int samplesNum = metrics.getFailureStatusSamplesNum();
+            if (samplesNum > 0) {
+                float rate = metrics.getFailureStatusRate();
+                rateCount += rate;
+                samplesGroupNum ++;
+                samplesCount += samplesNum;
+                rates.put(app, rate);
             }
         }
-        return new ImmutablePair<>(failureStatusRate > threshold, failureStatusRate);
+        float cl = rateCount / samplesGroupNum;
+        float sd = (float) Math.sqrt((cl*(1-cl))/(samplesCount/samplesGroupNum));
+        float ucl = cl + 3*sd;
+        float lcl = cl - 3*sd;
+        if (lcl < 0) {
+            lcl = 0;
+        }
+        return new FailureStatusRateSPC(cl, ucl, lcl, rates);
     }
 
 }

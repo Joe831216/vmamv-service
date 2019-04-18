@@ -48,6 +48,9 @@ public interface ServiceRepository extends Neo4jRepository<Service, Long> {
     @Query("MATCH (s:Setting)<-[r:MGP_CONFIG]-(n:Service {systemName:{systemName}}) WHERE NOT n:NullService RETURN n, r, s")
     List<Service> findBySystemNameWithSettingNotNull(@Param("systemName") String systemName);
 
+    @Query("MATCH (n:Service {systemName:{systemName}}) WHERE NOT n:NullService OPTIONAL MATCH (n)-[r:MGP_CONFIG]->(s:Setting) RETURN n, r, s")
+    List<Service> findBySystemNameWithOptionalSettingNotNull(@Param("systemName") String systemName);
+
     @Query("MATCH (n:NullService {appId:{appId}}) RETURN n")
     Service findNullByAppId(@Param("appId") String appId);
 

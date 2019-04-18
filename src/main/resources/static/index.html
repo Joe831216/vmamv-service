@@ -15,12 +15,20 @@
 			margin-bottom: 500px;
 		}
 
-		#canvas {
+		.canvas {
 			position: fixed;
 			left: 0px;
 			right: 0px;
 			top: 0px;
 			bottom: 0px;
+		}
+
+		.split-up.canvas {
+			bottom: 50%!important;
+		}
+
+		.split-down.canvas {
+			top: 50%!important;
 		}
 
 		/*
@@ -145,19 +153,21 @@
 	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
 	<script defer src="https://d3js.org/d3.v4.min.js"></script>
-	<!-- https://github.com/abodelot/jquery.json-viewer -->
-	<script defer src="js/jquery.json-viewer.js"></script>
 	<script src="https://d3js.org/d3-color.v1.min.js"></script>
 	<script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
 	<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+	<!-- https://github.com/abodelot/jquery.json-viewer -->
+	<script defer src="js/jquery.json-viewer.js"></script>
 	<script src="js/html2canvas.min.js"></script>
 	<script src="js/d3-symbol-extra.min.js"></script>
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" crossorigin="anonymous">
 	<script defer src="js/sdg-graph.js"></script>
+	<script defer src="js/spc-graph.js"></script>
 	<script defer src="js/index.js"></script>
 </head>
 <body>
-<div id="canvas">
+<div id="sdg-canvas" class="canvas border">
 	<svg id = "graph">
 		<defs>
 			<marker
@@ -229,6 +239,7 @@
 		</defs>
 	</svg>
 </div>
+<div id="spc-canvas" class="canvas border collapse"></div>
 <div aria-live="polite" aria-atomic="true" class="mt-3" style="z-index: 1;position: fixed; left: 50%; transform: translateX(-50%);">
     <div id="toast-div">
         <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="8000">
@@ -271,13 +282,14 @@
 											<input name="enableRestFailureAlert" type="checkbox" class="custom-control-input" id="graph-enable-collapse">
 											<label class="custom-control-label" for="graph-enable-collapse">Collapse</label>
 										</div>
+										<div class="custom-control custom-switch ml-3">
+											<input name="enableControlChart" type="checkbox" class="custom-control-input" id="graph-enable-control-chart">
+											<label class="custom-control-label" for="graph-enable-control-chart">Control chart</label>
+										</div>
 									</form>
 								</div>
 							</div>
 						</div>
-						<li class="nav-item">
-							<a class="nav-link" id="download-graph" href="#" download="graph.png">Download graph</a>
-						</li>
 						<div class="nav-item dropdown">
 							<a class="nav-link dropdown-toggle" href="#" id="notificationsMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 								Notifications
@@ -287,6 +299,9 @@
 								</button>
 							</div>
 						</div>
+						<li class="nav-item">
+							<a class="nav-link" id="download-graph" href="#" download="graph.png">Download graph</a>
+						</li>
 					</ul>
 				</div>
 			</nav>

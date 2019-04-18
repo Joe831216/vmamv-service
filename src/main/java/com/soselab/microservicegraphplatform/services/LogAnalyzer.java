@@ -29,18 +29,22 @@ public class LogAnalyzer {
     private ObjectMapper mapper;
 
     public AppMetrics getMetrics(String systemName, String appName, String version) {
-        List<MgpLog> responseLogs = httpRequestAndResponseRepository.findResponseBySystemNameAndAppNameAndVersion
-                (systemName, appName, version, new PageRequest(0,1000, new Sort(Sort.Direction.ASC, "@timestamp")));
+        List<MgpLog> responseLogs = getRecentResponseLogs(systemName, appName, version, 100);
         AppMetrics metrics = new AppMetrics();
         Integer averageDuration = getAverageResponseDuration(responseLogs);
         if (averageDuration != null) {
             metrics.setAverageDuration(averageDuration);
         }
         //logger.info(systemName + ":" + appName + ":" + version + " : average duration calculate by recent " + responseLogs.size() + " responses: " + metrics.getAverageDuration() + "ms");
-        metrics.setStatuses(getResponseStausMetrics(responseLogs));
+        metrics.setStatuses(getResponseStatusMetrics(responseLogs));
         metrics.setErrorCount(getErrorCount(systemName, appName, version));
         //logger.info(systemName + ":" + appName + ":" + version + " : error count: " + metrics.getErrorCount());
         return metrics;
+    }
+
+    private List<MgpLog> getRecentResponseLogs(String systemName, String appName, String version, int size) {
+        return httpRequestAndResponseRepository.findResponseBySystemNameAndAppNameAndVersion
+                (systemName, appName, version, new PageRequest(0, size, new Sort(Sort.Direction.DESC, "@timestamp")));
     }
 
     private Integer getAverageResponseDuration(List<MgpLog> logs) {
@@ -67,7 +71,7 @@ public class LogAnalyzer {
         return averageDuration;
     }
 
-    private List<Status> getResponseStausMetrics(List<MgpLog> logs) {
+    private List<Status> getResponseStatusMetrics(List<MgpLog> logs) {
         Map<Integer, Integer> statusCount = new HashMap<>();
         if (logs.size() > 0) {
             for (MgpLog log : logs) {

@@ -3,6 +3,9 @@ const NOTI_LEVEL_WARNING = "warning";
 const NOTI_LEVEL_ERROR = "error";
 
 let toast = $("#toast-div .toast");
+let sdgCanvas = $("#sdg-canvas");
+let spcCanvas = $("#spc-canvas");
+let enableControlChart = $("#graph-enable-control-chart");
 let notificationsDropdown = $("#notificationsMenuLink").parent().find(".dropdown-menu");
 let stompClient = null;
 
@@ -37,7 +40,7 @@ function connectSocket() {
     });
 }
 
-let addStyle = function(children) {
+let addInlineStyle = function(children) {
     for (let i = 0; i < children.length; i++) {
         let child = children[i];
         if (child instanceof Element) {
@@ -48,7 +51,7 @@ let addStyle = function(children) {
                 cssText += prop + ':' + computedStyle.getPropertyValue(prop) + ';';
             }
             child.setAttribute('style', cssText);
-            addStyle(child.childNodes);
+            addInlineStyle(child.childNodes);
         }
     }
 };
@@ -60,9 +63,9 @@ downloadGraphLink.click(function () {
     if (!downloadGraphLink.ready) {
         event.preventDefault();
         graph.stopSimulation();
-        let svg = document.querySelector("#canvas").cloneNode(true);
+        let svg = document.querySelector("#sdg-canvas").cloneNode(true);
         document.body.appendChild(svg);
-        addStyle(svg.childNodes);
+        addInlineStyle(svg.childNodes);
         html2canvas(svg).then(canvas => {
             svg.remove();
             graph.restartSimulation();
@@ -124,7 +127,7 @@ function startGraph(systemName) {
     subscribeGraph = stompClient.subscribe("/topic/graph/" + systemName.value, function (message) {
         let data = JSON.parse(message.body);
         if (graph === null) {
-            graph = new BuildGraph(data);
+            graph = new SDGGraph(data);
         } else {
             graph.updateData(data);
         }
@@ -214,5 +217,50 @@ function startGraph(systemName) {
     });
 
     stompClient.send("/mgp/graph/" + systemName.value);
+
+    if (enableControlChart[0].checked) {
+        startSPCGraph(startGraph.systemName);
+    }
+}
+
+let subscribeSpcGraph = null;
+let spcGraph = null;
+
+enableControlChart.on("change", function () {
+    if (this.checked) {
+        sdgCanvas.addClass("split-up");
+        spcCanvas.addClass("split-down");
+        spcCanvas.removeClass("collapse");
+        startSPCGraph(startGraph.systemName);
+    } else {
+        spcCanvas.addClass("collapse");
+        sdgCanvas.removeClass("split-up");
+        spcCanvas.removeClass("split-down");
+        spcGraph = null;
+        spcCanvas.empty();
+    }
+    window.dispatchEvent(new Event('resize'));
+});
+
+function startSPCGraph(systemName) {
+    if (subscribeSpcGraph !== null) {
+        subscribeSpcGraph.unsubscribe();
+    }
+
+    if (spcGraph !== null) {
+        spcGraph = null;
+        spcCanvas.empty();
+    }
+
+    subscribeSpcGraph = stompClient.subscribe("/topic/graph/spc/failureStatusRate/" + systemName, function (message) {
+        let data = JSON.parse(message.body);
+        if (spcGraph === null) {
+            spcGraph = new SPCGraph(spcCanvas.prop('id'), "Control Chart - Failure Status Rate", data);
+        } else {
+            spcGraph.updateData(data);
+        }
+    });
+
+    stompClient.send("/mgp/graph/spc/failureStatusRate/" + systemName);
 }
 

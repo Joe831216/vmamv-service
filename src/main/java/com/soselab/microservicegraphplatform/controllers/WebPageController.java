@@ -2,6 +2,7 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soselab.microservicegraphplatform.bean.mgp.monitor.FailureStatusRateSPC;
 import com.soselab.microservicegraphplatform.services.*;
 import com.soselab.microservicegraphplatform.bean.mgp.AppSetting;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
@@ -36,6 +37,8 @@ public class WebPageController {
     private SettingRepository settingRepository;
     @Autowired
     private RefreshScheduledTask refreshScheduledTask;
+    @Autowired
+    private MonitorService monitorService;
     @Autowired
     private WebNotificationService notificationService;
     @Autowired
@@ -170,6 +173,16 @@ public class WebPageController {
 
     public void sendGraph(String systemName, String data) {
         messagingTemplate.convertAndSend("/topic/graph/" + systemName, data);
+    }
+
+    @MessageMapping("/graph/spc/failureStatusRate/{systemName}")
+    @SendTo("/topic/graph/spc/failureStatusRate/{systemName}")
+    public FailureStatusRateSPC getFailureStatusRate(@DestinationVariable("systemName") String systemName) {
+        return monitorService.getFailureStatusRateSPC(systemName);
+    }
+
+    public void sendFailureStatusRateSPC(String systemName, FailureStatusRateSPC data) {
+        messagingTemplate.convertAndSend("/topic/graph/spc/failureStatusRate/" + systemName, data);
     }
 
     @GetMapping("/notification/{systemName}")

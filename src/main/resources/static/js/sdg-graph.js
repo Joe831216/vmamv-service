@@ -1,4 +1,4 @@
-function BuildGraph(data) {
+function SDGGraph(data) {
     const LABEL_SERVICE = "Service";
     const LABEL_NULLSERVICE = "NullService";
     const LABEL_ENDPOINT = "Endpoint";
@@ -47,7 +47,7 @@ function BuildGraph(data) {
     let emptyData = {nodes: [], links: []};
     let graphData = data;
 
-    let canvas = document.getElementById("canvas");
+    let canvas = document.getElementById("sdg-canvas");
 
     let graph = document.getElementById("graph");
     graph.setAttribute("width", canvas.clientWidth);

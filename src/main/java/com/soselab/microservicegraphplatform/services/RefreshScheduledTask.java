@@ -188,7 +188,7 @@ public class RefreshScheduledTask {
                         } else {
                             updated.put(systemName, false);
                         }
-                        monitorService.checkAlert(systemName);
+                        monitorService.runScheduled(systemName);
                     } catch (ResourceAccessException e) {
                         logger.error(e.getMessage(), e);
                     }
