@@ -272,22 +272,47 @@
 				<div class="collapse navbar-collapse" id="navbarNavDropdown">
 					<ul class="navbar-nav">
 						<div class="nav-item dropdown">
-							<a class="nav-link dropdown-toggle" href="#" id="graphOptionsMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								Graph options
+							<a class="nav-link dropdown-toggle" href="#" id="sdgGraphOptionsMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								Dependency graph options
 							</a>
-							<div class="dropdown-menu" aria-labelledby="graphOptionsMenuLink">
+							<div class="dropdown-menu" aria-labelledby="sdgGraphOptionsMenuLink">
 								<div class="dropdown-item">
 									<form>
-										<div class="custom-control custom-switch ml-3">
+										<div class="custom-control custom-switch">
 											<input name="enableRestFailureAlert" type="checkbox" class="custom-control-input" id="graph-enable-collapse">
-											<label class="custom-control-label" for="graph-enable-collapse">Collapse</label>
-										</div>
-										<div class="custom-control custom-switch ml-3">
-											<input name="enableControlChart" type="checkbox" class="custom-control-input" id="graph-enable-control-chart">
-											<label class="custom-control-label" for="graph-enable-control-chart">Control chart</label>
+											<label class="custom-control-label" for="graph-enable-collapse">Collapse dependency</label>
 										</div>
 									</form>
 								</div>
+							</div>
+						</div>
+						<div class="nav-item dropdown">
+							<a class="nav-link dropdown-toggle" href="#" id="spcGraphOptionsMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								SPC graph options
+							</a>
+							<div class="dropdown-menu" aria-labelledby="spcGraphOptionsMenuLink">
+								<form>
+									<div class="dropdown-item">
+										<div class="custom-control custom-switch">
+											<input name="enableControlChart" type="checkbox" class="custom-control-input" id="graph-show-control-chart">
+											<label class="custom-control-label" for="graph-show-control-chart">Show control chart</label>
+										</div>
+									</div>
+									<div class="dropdown-divider"></div>
+									<h6 class="dropdown-header">Types</h6>
+									<div class="dropdown-item">
+										<div class="custom-control custom-radio">
+											<input type="radio" id="spcFailureStatusRate" name="controlChartType" class="custom-control-input" value="failureStatusRate">
+											<label class="custom-control-label" for="spcFailureStatusRate">Failure status rate</label>
+										</div>
+									</div>
+									<div class="dropdown-item">
+										<div class="custom-control custom-radio">
+											<input type="radio" id="spcDuration" name="controlChartType" class="custom-control-input" value="duration">
+											<label class="custom-control-label" for="spcDuration">Duration</label>
+										</div>
+									</div>
+								</form>
 							</div>
 						</div>
 						<div class="nav-item dropdown">

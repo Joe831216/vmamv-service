@@ -5,7 +5,8 @@ const NOTI_LEVEL_ERROR = "error";
 let toast = $("#toast-div .toast");
 let sdgCanvas = $("#sdg-canvas");
 let spcCanvas = $("#spc-canvas");
-let enableControlChart = $("#graph-enable-control-chart");
+let showControlChart = $("#graph-show-control-chart");
+let spcTypesInput = $('#spcGraphOptionsMenuLink').parent().find("input[name='controlChartType']");
 let notificationsDropdown = $("#notificationsMenuLink").parent().find(".dropdown-menu");
 let stompClient = null;
 
@@ -218,20 +219,37 @@ function startGraph(systemName) {
 
     stompClient.send("/mgp/graph/" + systemName.value);
 
-    if (enableControlChart[0].checked) {
-        startSPCGraph(startGraph.systemName);
+    if (showControlChart[0].checked) {
+        let type = getSpcType();
+        if (type) {
+            startSPCGraph(startGraph.systemName, type);
+        }
     }
+}
+
+function getSpcType() {
+    let type;
+    spcTypesInput.each(function () {
+        if (this.checked) {
+            type = this.value;
+            return false;
+        }
+    });
+    return type;
 }
 
 let subscribeSpcGraph = null;
 let spcGraph = null;
 
-enableControlChart.on("change", function () {
+showControlChart.on("change", function () {
     if (this.checked) {
-        sdgCanvas.addClass("split-up");
-        spcCanvas.addClass("split-down");
-        spcCanvas.removeClass("collapse");
-        startSPCGraph(startGraph.systemName);
+        let type = getSpcType();
+        if (type) {
+            sdgCanvas.addClass("split-up");
+            spcCanvas.addClass("split-down");
+            spcCanvas.removeClass("collapse");
+            startSPCGraph(startGraph.systemName, type);
+        }
     } else {
         spcCanvas.addClass("collapse");
         sdgCanvas.removeClass("split-up");
@@ -242,7 +260,20 @@ enableControlChart.on("change", function () {
     window.dispatchEvent(new Event('resize'));
 });
 
-function startSPCGraph(systemName) {
+spcTypesInput.on("change", function () {
+    if (showControlChart[0].checked) {
+        let type = getSpcType();
+        if (type) {
+            sdgCanvas.addClass("split-up");
+            spcCanvas.addClass("split-down");
+            spcCanvas.removeClass("collapse");
+            startSPCGraph(startGraph.systemName, type);
+        }
+    }
+    window.dispatchEvent(new Event('resize'));
+});
+
+function startSPCGraph(systemName, type) {
     if (subscribeSpcGraph !== null) {
         subscribeSpcGraph.unsubscribe();
     }
@@ -252,15 +283,15 @@ function startSPCGraph(systemName) {
         spcCanvas.empty();
     }
 
-    subscribeSpcGraph = stompClient.subscribe("/topic/graph/spc/failureStatusRate/" + systemName, function (message) {
+    subscribeSpcGraph = stompClient.subscribe("/topic/graph/spc/" + type + "/" + systemName, function (message) {
         let data = JSON.parse(message.body);
         if (spcGraph === null) {
-            spcGraph = new SPCGraph(spcCanvas.prop('id'), "Control Chart - Failure Status Rate", data);
+            spcGraph = new SPCGraph(spcCanvas.prop('id'), type, data);
         } else {
             spcGraph.updateData(data);
         }
     });
 
-    stompClient.send("/mgp/graph/spc/failureStatusRate/" + systemName);
+    stompClient.send("/mgp/graph/spc/" + type + "/" + systemName);
 }
 

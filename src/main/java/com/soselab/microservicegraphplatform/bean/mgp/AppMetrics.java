@@ -60,4 +60,8 @@ public class AppMetrics {
         return count;
     }
 
+    public int getDurationSamplesNum() {
+        return getFailureStatusSamplesNum();
+    }
+
 }

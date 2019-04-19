@@ -1,12 +1,28 @@
-function SPCGraph(divId, title,  data) {
-    let apps = Object.keys(data.rates);
-    let values = Object.values(data.rates);
-    let clStart = Object.keys(data.rates)[0];
-    let clEnd = Object.keys(data.rates)[Object.keys(data.rates).length - 1];
+function SPCGraph(divId, type,  data) {
+    let apps = Object.keys(data.values);
+    let values = Object.values(data.values);
+    let viols = getViols(data.values, data.ucl);
+    let clStart = Object.keys(data.values)[0];
+    let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
     let sdRange = data.ucl - data.cl;
     let uLimit = data.ucl + sdRange;
     let lLimit = data.lcl - sdRange;
     if (lLimit < 0) { lLimit = 0 }
+
+    function getViols(d, ucl) {
+        let viols = {};
+        for (let key in d) {
+            if (d[key] > ucl) {
+                viols[key] = d[key];
+            }
+        }
+        return viols;
+    }
+
+    function camelCaseToSentenceCase(text) {
+        let spaced = text.replace( /([A-Z])/g, " $1" );
+        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+    }
 
     // data
     let Data = {
@@ -17,13 +33,16 @@ function SPCGraph(divId, title,  data) {
         name: 'Data',
         showlegend: true,
         hoverinfo: 'all',
+
         line: {
+            simplify: false,
             color: 'blue',
             width: 2
         },
         marker: {
-            color: '#007bff',
-            size: 8,
+            colorscale: 'Portland',
+            color: values,
+            size: 12,
             symbol: 'circle'
         }
     };
@@ -31,8 +50,8 @@ function SPCGraph(divId, title,  data) {
     // violations
     let Viol = {
         type: 'scatter',
-        x: [],
-        y: [],
+        x: Object.keys(viols),
+        y: Object.values(viols),
         mode: 'markers',
         name: 'Violation',
         showlegend: true,
@@ -40,7 +59,7 @@ function SPCGraph(divId, title,  data) {
             color: 'rgb(255,65,54)',
             line: {width: 3},
             opacity: 0.5,
-            size: 12,
+            size: 16,
             symbol: 'circle-open'
         }
     };
@@ -54,8 +73,9 @@ function SPCGraph(divId, title,  data) {
         name: 'LCL/UCL',
         showlegend: true,
         line: {
-            color: 'red',
-            width: 2,
+            simplify: false,
+            color: '#F6697D',
+            width: 1,
             dash: 'dash'
         }
     };
@@ -69,8 +89,9 @@ function SPCGraph(divId, title,  data) {
         name: 'Centre',
         showlegend: true,
         line: {
-            color: 'grey',
-            width: 2
+            simplify: false,
+            color: '#CFC5C9',
+            width: 1
         }
     };
 
@@ -82,7 +103,7 @@ function SPCGraph(divId, title,  data) {
         name: 'Distribution',
         orientation: 'h',
         marker: {
-            color: '#007bff',
+            color: '#3AA0E4',
             line: {
                 color: 'white',
                 width: 1
@@ -98,12 +119,15 @@ function SPCGraph(divId, title,  data) {
 
     // layout
     let layout = {
-        title: title,
+        title: "Control Chart - " + camelCaseToSentenceCase(type),
+        margin: {pad: 3},
         xaxis: {
+            title: 'Services',
             domain: [0, 0.7], // 0 to 70% of width
             zeroline: false
         },
         yaxis: {
+            title: camelCaseToSentenceCase(type),
             range: [lLimit,uLimit],
             zeroline: true
         },
@@ -117,13 +141,14 @@ function SPCGraph(divId, title,  data) {
         }
     };
 
-    Plotly.newPlot(divId, plotData, layout, {responsive: true, showSendToCloud: false});
+    Plotly.newPlot(divId, plotData, layout, {responsive: true, showSendToCloud: true});
 
     this.updateData = function (data) {
-        let apps = Object.keys(data.rates);
-        let values = Object.values(data.rates);
-        let clStart = Object.keys(data.rates)[0];
-        let clEnd = Object.keys(data.rates)[Object.keys(data.rates).length - 1];
+        let apps = Object.keys(data.values);
+        let values = Object.values(data.values);
+        let viols = getViols(data.values, data.ucl);
+        let clStart = Object.keys(data.values)[0];
+        let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
         let sdRange = data.ucl - data.cl;
         let uLimit = data.ucl + sdRange;
         let lLimit = data.lcl - sdRange;
@@ -131,6 +156,9 @@ function SPCGraph(divId, title,  data) {
 
         Data['x'] = apps;
         Data['y'] = values;
+        Data['marker']['color'] = values;
+        Viol['x'] = Object.keys(viols);
+        Viol['y'] = Object.values(viols);
         histo['x'] = apps;
         histo['y'] = values;
         CL['x'] = [clStart, clEnd, null, clStart, clEnd];
@@ -139,11 +167,13 @@ function SPCGraph(divId, title,  data) {
         Centre['y'] = [data.cl, data.cl];
 
         Plotly.animate(divId, {
-            data: [{x: Data['x'], y: Data['y']},
+            data: [{x: Data['x'], y: Data['y'], marker: { color: Data['marker']['color'] }},
+                {x: Viol['x'], y: Viol['y']},
                 {x: CL['x'], y: CL['y']},
                 {x: Centre['x'], y: Centre['y']},
                 {x: histo['x'], y: histo['y']}],
-            traces: [0, 2, 3, 4]
+            traces: [0, 1, 2, 3, 4],
+            layout: {}
         }, {
             transition: {
                 duration: 500,

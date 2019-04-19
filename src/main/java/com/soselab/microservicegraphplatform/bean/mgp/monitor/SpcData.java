@@ -2,21 +2,21 @@ package com.soselab.microservicegraphplatform.bean.mgp.monitor;
 
 import java.util.Map;
 
-public class FailureStatusRateSPC {
+public class SpcData {
 
     private float cl;
     private float ucl;
     private float lcl;
-    private Map<String, Float> rates;
+    private Map<String, Float> values;
 
-    public FailureStatusRateSPC() {
+    public SpcData() {
     }
 
-    public FailureStatusRateSPC(float cl, float ucl, float lcl, Map<String, Float> rates) {
+    public SpcData(float cl, float ucl, float lcl, Map<String, Float> values) {
         this.cl = cl;
         this.ucl = ucl;
         this.lcl = lcl;
-        this.rates = rates;
+        this.values = values;
     }
 
     public float getCl() {
@@ -43,12 +43,12 @@ public class FailureStatusRateSPC {
         this.lcl = lcl;
     }
 
-    public Map<String, Float> getRates() {
-        return rates;
+    public Map<String, Float> getValues() {
+        return values;
     }
 
-    public void setRates(Map<String, Float> rates) {
-        this.rates = rates;
+    public void setValues(Map<String, Float> values) {
+        this.values = values;
     }
 
 }

@@ -2,7 +2,7 @@ package com.soselab.microservicegraphplatform.services;
 
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
-import com.soselab.microservicegraphplatform.bean.mgp.monitor.FailureStatusRateSPC;
+import com.soselab.microservicegraphplatform.bean.mgp.monitor.SpcData;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureErrorNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureStatusRateWarningNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
@@ -35,16 +35,18 @@ public class MonitorService {
     private WebPageController webPageController;
     @Autowired
     private WebNotificationService notificationService;
-    private Map<String, FailureStatusRateSPC> failureStatusRateSPCMap = new HashMap<>();
+    private Map<String, SpcData> failureStatusRateSPCMap = new HashMap<>();
+    private Map<String, SpcData> durationSPCMap = new HashMap<>();
 
     public void runScheduled(String systemName) {
         //List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
         List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
-        checkAlert(systemName, services);
         updateSPCData(systemName, services);
+        checkUserAlert(systemName, services);
+        checkSPCAlert(systemName);
     }
 
-    public void checkAlert(String systemName, List<Service> services) {
+    public void checkUserAlert(String systemName, List<Service> services) {
         for (Service service : services) {
             Setting setting = service.getSetting();
             if (setting == null) {
@@ -59,7 +61,7 @@ public class MonitorService {
                 if (failureStatusRateResult.getKey()) {
                     WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
                             service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
-                            FailureStatusRateWarningNotification.TYPE_ELASTICSEARCH);
+                            FailureStatusRateWarningNotification.DATA_ELASTICSEARCH, FailureStatusRateWarningNotification.THRESHOLD_USER);
                     notificationService.pushNotificationToSystem(systemName, notification);
                 }
                 // Error
@@ -79,7 +81,7 @@ public class MonitorService {
                 if (failureStatusRateResult.getKey()) {
                     WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
                             service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
-                            FailureStatusRateWarningNotification.TYPE_ACTUATOR);
+                            FailureStatusRateWarningNotification.DATA_ACTUATOR, FailureStatusRateWarningNotification.THRESHOLD_USER);
                     notificationService.pushNotificationToSystem(systemName, notification);
                 }
             }
@@ -92,8 +94,19 @@ public class MonitorService {
         return new ImmutablePair<>(failureStatusRate > threshold, failureStatusRate);
     }
 
-    public FailureStatusRateSPC getFailureStatusRateSPC(String systemName) {
-        return failureStatusRateSPCMap.get(systemName);
+    private void checkSPCAlert(String systemName) {
+        SpcData spcData = failureStatusRateSPCMap.get(systemName);
+        if (spcData != null) {
+            float ucl = spcData.getUcl();
+            spcData.getValues().forEach((app, value) -> {
+                if (value > ucl) {
+                    String appName = app.split(":")[0];
+                    String version = app.split(":")[1];
+                    notificationService.pushNotificationToSystem(systemName, new FailureStatusRateWarningNotification(appName, version, value, ucl,
+                            FailureStatusRateWarningNotification.DATA_ELASTICSEARCH, FailureStatusRateWarningNotification.THRESHOLD_SPC));
+                }
+            });
+        }
     }
 
     private void updateSPCData(String systemName, List<Service> services) {
@@ -101,37 +114,88 @@ public class MonitorService {
         for (Service service : services) {
             metricsMap.put(service.getAppName() + ":" + service.getVersion(), logAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion()));
         }
-        FailureStatusRateSPC failureStatusRateSPC = updateFailureStatusRateSPC(metricsMap);
-        //logger.info(systemName + " failure status rate control chart -> CL: " + cl + ", UCL: " + ucl + ", LCL: " + lcl);
-        webPageController.sendFailureStatusRateSPC(systemName, failureStatusRateSPC);
-        failureStatusRateSPCMap.put(systemName, failureStatusRateSPC);
+        SpcData failureStatusRateSpcData = getNowFailureStatusRateSPC(metricsMap);
+        webPageController.sendFailureStatusRateSPC(systemName, failureStatusRateSpcData);
+        failureStatusRateSPCMap.put(systemName, failureStatusRateSpcData);
+
+        SpcData durationSpcData = getNowDurationSPC(metricsMap);
+        webPageController.sendDurationSPC(systemName, durationSpcData);
+        durationSPCMap.put(systemName, durationSpcData);
+
     }
 
-    private FailureStatusRateSPC updateFailureStatusRateSPC(Map<String, AppMetrics> metricsMap) {
-        float rateCount = 0;
-        float samplesGroupNum = 0;
+    // P chart
+    private SpcData getNowFailureStatusRateSPC(Map<String, AppMetrics> metricsMap) {
+        float valueCount = 0;
+        float sampleGroupsNum = 0;
         long samplesCount = 0;
-        Map<String, Float> rates = new HashMap<>();
+        Map<String, Float> values = new HashMap<>();
         for (Map.Entry<String, AppMetrics> entry : metricsMap.entrySet()) {
             String app = entry.getKey();
             AppMetrics metrics = entry.getValue();
             int samplesNum = metrics.getFailureStatusSamplesNum();
             if (samplesNum > 0) {
-                float rate = metrics.getFailureStatusRate();
-                rateCount += rate;
-                samplesGroupNum ++;
+                float value = metrics.getFailureStatusRate();
+                valueCount += value;
+                sampleGroupsNum ++;
                 samplesCount += samplesNum;
-                rates.put(app, rate);
+                values.put(app, value);
             }
         }
-        float cl = rateCount / samplesGroupNum;
-        float sd = (float) Math.sqrt((cl*(1-cl))/(samplesCount/samplesGroupNum));
+        float cl = valueCount / sampleGroupsNum;
+        float n = samplesCount/sampleGroupsNum;
+        float sd = getPChartSD(cl, n);
         float ucl = cl + 3*sd;
         float lcl = cl - 3*sd;
         if (lcl < 0) {
             lcl = 0;
         }
-        return new FailureStatusRateSPC(cl, ucl, lcl, rates);
+        return new SpcData(cl, ucl, lcl, values);
+    }
+
+    public SpcData getFailureStatusRateSPC(String systemName) {
+        return failureStatusRateSPCMap.get(systemName);
+    }
+
+    // U chart
+    private SpcData getNowDurationSPC(Map<String, AppMetrics> metricsMap) {
+        float valueCount = 0;
+        float sampleGroupsNum = 0;
+        long samplesCount = 0;
+        Map<String, Float> values = new HashMap<>();
+        for (Map.Entry<String, AppMetrics> entry : metricsMap.entrySet()) {
+            String app = entry.getKey();
+            AppMetrics metrics = entry.getValue();
+            int samplesNum = metrics.getDurationSamplesNum();
+            if (samplesNum > 0) {
+                float value = metrics.getAverageDuration();
+                valueCount += value;
+                sampleGroupsNum ++;
+                samplesCount += samplesNum;
+                values.put(app, value);
+            }
+        }
+        float cl = valueCount / sampleGroupsNum;
+        float n = samplesCount/sampleGroupsNum;
+        float sd = getUChartSD(cl, n);
+        float ucl = cl + 3*sd;
+        float lcl = cl - 3*sd;
+        if (lcl < 0) {
+            lcl = 0;
+        }
+        return new SpcData(cl, ucl, lcl, values);
+    }
+
+    public SpcData getDurationSPC(String systemName) {
+        return durationSPCMap.get(systemName);
+    }
+
+    private float getPChartSD(float cl, float n) {
+        return (float) Math.sqrt(cl*(1-cl)/n);
+    }
+
+    private float getUChartSD(float cl, float n) {
+        return (float) Math.sqrt(cl/n);
     }
 
 }

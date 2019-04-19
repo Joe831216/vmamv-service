@@ -883,6 +883,7 @@ function SDGGraph(data) {
     }
 
     function clicked(d) {
+        /*
         let scale;
         let translate;
         if (graphWidth > 960) {
@@ -892,6 +893,9 @@ function SDGGraph(data) {
             scale = 1;
             translate = [graphWidth / 2 - scale * d.x, graphHeight * 0.3 - scale * d.y];
         }
+        */
+        let scale = 1;
+        let translate = [graphWidth / 2 - scale * d.x, graphHeight / 2 - scale * d.y];
         let transform = d3.zoomIdentity
             .translate(translate[0], translate[1])
             .scale(scale);

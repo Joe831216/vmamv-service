@@ -2,7 +2,7 @@ package com.soselab.microservicegraphplatform.controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.soselab.microservicegraphplatform.bean.mgp.monitor.FailureStatusRateSPC;
+import com.soselab.microservicegraphplatform.bean.mgp.monitor.SpcData;
 import com.soselab.microservicegraphplatform.services.*;
 import com.soselab.microservicegraphplatform.bean.mgp.AppSetting;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
@@ -177,12 +177,22 @@ public class WebPageController {
 
     @MessageMapping("/graph/spc/failureStatusRate/{systemName}")
     @SendTo("/topic/graph/spc/failureStatusRate/{systemName}")
-    public FailureStatusRateSPC getFailureStatusRate(@DestinationVariable("systemName") String systemName) {
+    public SpcData getFailureStatusRateSpc(@DestinationVariable("systemName") String systemName) {
         return monitorService.getFailureStatusRateSPC(systemName);
     }
 
-    public void sendFailureStatusRateSPC(String systemName, FailureStatusRateSPC data) {
+    public void sendFailureStatusRateSPC(String systemName, SpcData data) {
         messagingTemplate.convertAndSend("/topic/graph/spc/failureStatusRate/" + systemName, data);
+    }
+
+    @MessageMapping("/graph/spc/duration/{systemName}")
+    @SendTo("/topic/graph/spc/duration/{systemName}")
+    public SpcData getDurationSpc(@DestinationVariable("systemName") String systemName) {
+        return monitorService.getDurationSPC(systemName);
+    }
+
+    public void sendDurationSPC(String systemName, SpcData data) {
+        messagingTemplate.convertAndSend("/topic/graph/spc/duration/" + systemName, data);
     }
 
     @GetMapping("/notification/{systemName}")
