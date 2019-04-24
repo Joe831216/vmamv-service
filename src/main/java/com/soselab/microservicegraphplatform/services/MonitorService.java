@@ -1,5 +1,6 @@
 package com.soselab.microservicegraphplatform.services;
 
+import com.soselab.microservicegraphplatform.bean.elasticsearch.MgpLog;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.monitor.SpcData;
@@ -16,12 +17,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Configuration
 public class MonitorService {
     private static final Logger logger = LoggerFactory.getLogger(MonitorService.class);
+    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
     @Autowired
     private GeneralRepository generalRepository;
@@ -36,10 +40,18 @@ public class MonitorService {
     @Autowired
     private WebNotificationService notificationService;
     private Map<String, SpcData> failureStatusRateSPCMap = new HashMap<>();
-    private Map<String, SpcData> durationSPCMap = new HashMap<>();
+    private Map<String, SpcData> averageDurationSPCMap = new HashMap<>();
+
+    @Scheduled(cron = "0 0 0/1 1/1 * ?")
+    private void everyHoursScheduled() {
+        List<String> systemNames = generalRepository.getAllSystemName();
+        for (String systemName : systemNames) {
+            List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
+            checkLowUsage(systemName, services, 60);
+        }
+    }
 
     public void runScheduled(String systemName) {
-        //List<Service> services = serviceRepository.findBySystemNameWithSettingNotNull(systemName);
         List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
         updateSPCData(systemName, services);
         checkUserAlert(systemName, services);
@@ -115,19 +127,19 @@ public class MonitorService {
             metricsMap.put(service.getAppName() + ":" + service.getVersion(), logAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion()));
         }
         SpcData failureStatusRateSpcData = getNowFailureStatusRateSPC(metricsMap);
-        webPageController.sendFailureStatusRateSPC(systemName, failureStatusRateSpcData);
+        webPageController.sendAppsFailureStatusRateSPC(systemName, failureStatusRateSpcData);
         failureStatusRateSPCMap.put(systemName, failureStatusRateSpcData);
 
-        SpcData durationSpcData = getNowDurationSPC(metricsMap);
-        webPageController.sendDurationSPC(systemName, durationSpcData);
-        durationSPCMap.put(systemName, durationSpcData);
+        SpcData durationSpcData = getNowAverageDurationSPC(metricsMap);
+        webPageController.sendAppsAverageDurationSPC(systemName, durationSpcData);
+        averageDurationSPCMap.put(systemName, durationSpcData);
 
     }
 
     // P chart
     private SpcData getNowFailureStatusRateSPC(Map<String, AppMetrics> metricsMap) {
         float valueCount = 0;
-        float sampleGroupsNum = 0;
+        int sampleGroupsNum = 0;
         long samplesCount = 0;
         Map<String, Float> values = new HashMap<>();
         for (Map.Entry<String, AppMetrics> entry : metricsMap.entrySet()) {
@@ -143,7 +155,7 @@ public class MonitorService {
             }
         }
         float cl = valueCount / sampleGroupsNum;
-        float n = samplesCount/sampleGroupsNum;
+        float n = (float) samplesCount/sampleGroupsNum;
         float sd = getPChartSD(cl, n);
         float ucl = cl + 3*sd;
         float lcl = cl - 3*sd;
@@ -158,9 +170,9 @@ public class MonitorService {
     }
 
     // U chart
-    private SpcData getNowDurationSPC(Map<String, AppMetrics> metricsMap) {
+    private SpcData getNowAverageDurationSPC(Map<String, AppMetrics> metricsMap) {
         float valueCount = 0;
-        float sampleGroupsNum = 0;
+        int sampleGroupsNum = 0;
         long samplesCount = 0;
         Map<String, Float> values = new HashMap<>();
         for (Map.Entry<String, AppMetrics> entry : metricsMap.entrySet()) {
@@ -176,7 +188,7 @@ public class MonitorService {
             }
         }
         float cl = valueCount / sampleGroupsNum;
-        float n = samplesCount/sampleGroupsNum;
+        float n = (float) samplesCount/sampleGroupsNum;
         float sd = getUChartSD(cl, n);
         float ucl = cl + 3*sd;
         float lcl = cl - 3*sd;
@@ -186,8 +198,34 @@ public class MonitorService {
         return new SpcData(cl, ucl, lcl, values);
     }
 
-    public SpcData getDurationSPC(String systemName) {
-        return durationSPCMap.get(systemName);
+    public SpcData getAverageDurationSPC(String systemName) {
+        return averageDurationSPCMap.get(systemName);
+    }
+
+    // C chart
+    public SpcData getAppDurationSPC(String appId) {
+        String[] appInfo = appId.split(":");
+        List<MgpLog> logs = logAnalyzer.getRecentResponseLogs(appInfo[0], appInfo[1], appInfo[2], 100);
+        float valueCount = 0;
+        int samplesNum = 0;
+        Map<String, Float> values = new LinkedHashMap<>();
+        for (MgpLog log : logs) {
+            Integer duration = logAnalyzer.getResponseDuration(log);
+            if (duration != null) {
+                String time = dateFormat.format(log.getTimestamp());
+                valueCount += duration;
+                samplesNum ++;
+                values.put(time, (float) duration);
+            }
+        }
+        float cl = valueCount / samplesNum;
+        float sd = getCChartSD(cl);
+        float ucl = cl + 3*sd;
+        float lcl = cl - 3*sd;
+        if (lcl < 0) {
+            lcl = 0;
+        }
+        return new SpcData(cl, ucl, lcl, values);
     }
 
     private float getPChartSD(float cl, float n) {
@@ -196,6 +234,31 @@ public class MonitorService {
 
     private float getUChartSD(float cl, float n) {
         return (float) Math.sqrt(cl/n);
+    }
+
+    private float getCChartSD(float cl) {
+        return (float) Math.sqrt(cl);
+    }
+
+    // Find low-usage version of apps
+    private void checkLowUsage(String systemName, List<Service> services, int samplingDurationMinutes) {
+        Set<String> checkedApp = new HashSet<>();
+        Map<String, Set<String>> appNameAndVerSetMap = new HashMap<>();
+        for (Service service : services) {
+            appNameAndVerSetMap.merge(service.getAppName(), new HashSet<>(Arrays.asList(service.getVersion())),
+                    (oldSet, newSet) -> {
+                oldSet.add(service.getVersion());
+                return oldSet;
+            });
+
+            checkedApp.add(service.getAppName());
+        }
+        appNameAndVerSetMap.forEach((appName, versions) -> {
+            for (String version : versions) {
+                logger.info(systemName + ":" + appName + ":" + version + " usage metrics: " +
+                        logAnalyzer.getAppUsageMetrics(systemName, appName, version, samplingDurationMinutes));
+            }
+        });
     }
 
 }

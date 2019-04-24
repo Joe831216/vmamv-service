@@ -6,6 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 
 @Document(indexName = "*", type = "doc", createIndex = false)
 public class MgpLog {
@@ -16,7 +17,7 @@ public class MgpLog {
     private String level;
     @JsonProperty("@timestamp")
     @JsonFormat(shape=JsonFormat.Shape.STRING, pattern="yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone="GMT")
-    private Date timestamp;
+    private Timestamp timestamp;
     @JsonProperty("logger_name")
     private String loggerName;
     @JsonProperty("level_value")
@@ -33,7 +34,7 @@ public class MgpLog {
     public MgpLog() {
     }
 
-    public MgpLog(String host, String level, Date timestamp, String loggerName, int levelValue, String systemName, String threadName, int port, String appName, String version, String message) {
+    public MgpLog(String host, String level, Timestamp timestamp, String loggerName, int levelValue, String systemName, String threadName, int port, String appName, String version, String message) {
         this.host = host;
         this.level = level;
         this.timestamp = timestamp;
@@ -63,11 +64,11 @@ public class MgpLog {
         this.level = level;
     }
 
-    public Date getTimestamp() {
+    public Timestamp getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(Date timestamp) {
+    public void setTimestamp(Timestamp timestamp) {
         this.timestamp = timestamp;
     }
 

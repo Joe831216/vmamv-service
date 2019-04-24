@@ -36,7 +36,7 @@ public class WebPageController {
     @Autowired
     private SettingRepository settingRepository;
     @Autowired
-    private RefreshScheduledTask refreshScheduledTask;
+    private GraphService graphService;
     @Autowired
     private MonitorService monitorService;
     @Autowired
@@ -161,14 +161,14 @@ public class WebPageController {
                 }
             }
             logger.info(appId + " setting updated");
-            refreshScheduledTask.appSettingUpdatedEvent(appId);
+            graphService.appSettingUpdatedEvent(appId);
         }
     }
 
     @MessageMapping("/graph/{systemName}")
     @SendTo("/topic/graph/{systemName}")
     public String getGraph(@DestinationVariable String systemName) throws Exception {
-        return refreshScheduledTask.getGraphJson(systemName);
+        return graphService.getGraphJson(systemName);
     }
 
     public void sendGraph(String systemName, String data) {
@@ -177,26 +177,31 @@ public class WebPageController {
 
     @MessageMapping("/graph/spc/failureStatusRate/{systemName}")
     @SendTo("/topic/graph/spc/failureStatusRate/{systemName}")
-    public SpcData getFailureStatusRateSpc(@DestinationVariable("systemName") String systemName) {
+    public SpcData getAppsFailureStatusRateSpc(@DestinationVariable("systemName") String systemName) {
         return monitorService.getFailureStatusRateSPC(systemName);
     }
 
-    public void sendFailureStatusRateSPC(String systemName, SpcData data) {
+    public void sendAppsFailureStatusRateSPC(String systemName, SpcData data) {
         messagingTemplate.convertAndSend("/topic/graph/spc/failureStatusRate/" + systemName, data);
     }
 
-    @MessageMapping("/graph/spc/duration/{systemName}")
-    @SendTo("/topic/graph/spc/duration/{systemName}")
-    public SpcData getDurationSpc(@DestinationVariable("systemName") String systemName) {
-        return monitorService.getDurationSPC(systemName);
+    @MessageMapping("/graph/spc/averageDuration/{systemName}")
+    @SendTo("/topic/graph/spc/averageDuration/{systemName}")
+    public SpcData getAppsAverageDurationSpc(@DestinationVariable("systemName") String systemName) {
+        return monitorService.getAverageDurationSPC(systemName);
     }
 
-    public void sendDurationSPC(String systemName, SpcData data) {
-        messagingTemplate.convertAndSend("/topic/graph/spc/duration/" + systemName, data);
+    public void sendAppsAverageDurationSPC(String systemName, SpcData data) {
+        messagingTemplate.convertAndSend("/topic/graph/spc/averageDuration/" + systemName, data);
+    }
+
+    @GetMapping("/app/spc/duration/{appId}")
+    public SpcData getAppDurationSpc(@PathVariable("appId") String appId) {
+        return monitorService.getAppDurationSPC(appId);
     }
 
     @GetMapping("/notification/{systemName}")
-    public List<WebNotification> getSystemNotifications(@PathVariable("systemName") String systemName) {
+    public List<WebNotification> getNotifications(@PathVariable("systemName") String systemName) {
         return notificationService.getNotificationsOfSystem(systemName);
     }
 

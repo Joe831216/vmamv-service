@@ -94,6 +94,10 @@
 			stroke-opacity: 1;
 		}
 
+        .dash line {
+            stroke-dasharray: 5;
+        }
+
 		.links text {
 			text-anchor: middle;
 			fill: #555;
@@ -302,14 +306,20 @@
 									<h6 class="dropdown-header">Types</h6>
 									<div class="dropdown-item">
 										<div class="custom-control custom-radio">
-											<input type="radio" id="spcFailureStatusRate" name="controlChartType" class="custom-control-input" value="failureStatusRate">
-											<label class="custom-control-label" for="spcFailureStatusRate">Failure status rate</label>
+											<input type="radio" id="spc-apps-failure-status-rate" name="controlChartType" class="custom-control-input" value="failureStatusRate" data-protocol="websocket" data-target="apps" checked>
+											<label class="custom-control-label" for="spc-apps-failure-status-rate">Failure status rate</label>
 										</div>
 									</div>
 									<div class="dropdown-item">
 										<div class="custom-control custom-radio">
-											<input type="radio" id="spcDuration" name="controlChartType" class="custom-control-input" value="duration">
-											<label class="custom-control-label" for="spcDuration">Duration</label>
+											<input type="radio" id="spc-apps-average-duration" name="controlChartType" class="custom-control-input" value="averageDuration" data-protocol="websocket" data-target="apps">
+											<label class="custom-control-label" for="spc-apps-average-duration">Average duration</label>
+										</div>
+									</div>
+									<div class="dropdown-item" id="spc-app-duration-dropdown-item" data-toggle="tooltip" data-placement="right" title="To choose the service, click the service node on the dependency graph">
+										<div class="custom-control custom-radio">
+											<input type="radio" id="spc-app-duration" name="controlChartType" class="custom-control-input" value="duration" data-protocol="http" data-target="app">
+											<label class="custom-control-label" for="spc-app-duration">Duration (single service)</label>
 										</div>
 									</div>
 								</form>

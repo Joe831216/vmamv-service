@@ -30,9 +30,9 @@ import javax.annotation.PostConstruct;
 import java.util.*;
 
 @Configuration
-public class RefreshScheduledTask {
+public class GraphService {
 
-    private static final Logger logger = LoggerFactory.getLogger(RefreshScheduledTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(GraphService.class);
 
     @Autowired
     private GeneralRepository generalRepository;

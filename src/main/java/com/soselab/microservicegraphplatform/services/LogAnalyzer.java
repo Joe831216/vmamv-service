@@ -14,6 +14,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,9 +44,22 @@ public class LogAnalyzer {
         return metrics;
     }
 
-    private List<MgpLog> getRecentResponseLogs(String systemName, String appName, String version, int size) {
+    public List<MgpLog> getRecentResponseLogs(String systemName, String appName, String version, int size) {
         return httpRequestAndResponseRepository.findResponseBySystemNameAndAppNameAndVersion
                 (systemName, appName, version, new PageRequest(0, size, new Sort(Sort.Direction.DESC, "@timestamp")));
+    }
+
+    public Integer getResponseDuration(MgpLog log) {
+        Integer duration = null;
+        try {
+            RequestAndResponseMessage message = mapper.readValue(log.getMessage(), RequestAndResponseMessage.class);
+            if (message != null) {
+                duration = message.getDuration();
+            }
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        }
+        return duration;
     }
 
     private Integer getAverageResponseDuration(List<MgpLog> logs) {
@@ -53,15 +68,10 @@ public class LogAnalyzer {
             int logCount = 0;
             int durationCount = 0;
             for (MgpLog log : logs) {
-                RequestAndResponseMessage message = null;
-                try {
-                    message = mapper.readValue(log.getMessage(), RequestAndResponseMessage.class);
-                    if (message != null) {
-                        logCount++;
-                        durationCount += message.getDuration();
-                    }
-                } catch (IOException e) {
-                    logger.error(e.getMessage(), e);
+                Integer duration = getResponseDuration(log);
+                if (duration != null) {
+                    logCount++;
+                    durationCount += duration;
                 }
             }
             if (durationCount > 0) {
@@ -95,7 +105,25 @@ public class LogAnalyzer {
     }
 
     private Integer getErrorCount(String systemName, String appName, String version) {
-        return httpRequestAndResponseRepository.findErrorsBySystemNameAndAppNameAndVersion(systemName, appName, version).size();
+        //Long result = httpRequestAndResponseRepository.findErrorBySystemNameAndAppNameAndVersion(systemName, appName, version);
+        return httpRequestAndResponseRepository.findErrorBySystemNameAndAppNameAndVersion(systemName, appName, version).size();
+    }
+
+    public Float getAppUsageMetrics(String systemName, String appName, String version, int samplingDurationMinutes) {
+        List<MgpLog> requests = httpRequestAndResponseRepository.findRecentMinutesRequestBySystemNameAndAppNameAndVersion(systemName, appName, version, samplingDurationMinutes);
+        LocalDateTime endDateTime = LocalDateTime.now();
+        LocalDateTime startDateTime = endDateTime.minus(samplingDurationMinutes, ChronoUnit.MINUTES);
+        float usage = 0;
+        for (MgpLog request : requests) {
+            LocalDateTime reqTime = request.getTimestamp().toLocalDateTime();
+            usage += getRefreshMetrics(reqTime, startDateTime, samplingDurationMinutes);
+        }
+        return usage;
+    }
+
+    private Float getRefreshMetrics(LocalDateTime reqTime, LocalDateTime startTime, long samplingDuration) {
+        long reqDuration = ChronoUnit.MINUTES.between(startTime, reqTime);
+        return (float) reqDuration / samplingDuration;
     }
 
 }

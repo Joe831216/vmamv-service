@@ -25,11 +25,11 @@ public class FailureStatusRateWarningNotification extends WarningNotification {
         if (thresholdType.equals(THRESHOLD_USER)) {
             content = "Service <strong>" + appName + ":" + version +
                     "</strong> exceeded the threshold of <strong>failure status rate</strong>: current value (" + dataType + ") = " +
-                    value * 100 + "%, threshold = " + threshold + "%";
+                    value * 100 + "%, threshold = " + threshold*100 + "%";
         } else if (thresholdType.equals(THRESHOLD_SPC)){
             content = "The <strong>failure status rate</strong> of service <strong>" + appName + ":" + version +
                     "</strong> exceeds the system's <strong>UCL</strong>: current value (" + dataType + ") = " +
-                    value * 100 + "%, UCL = " + threshold + "%";
+                    value * 100 + "%, UCL = " + threshold*100 + "%";
         }
         return content;
     }

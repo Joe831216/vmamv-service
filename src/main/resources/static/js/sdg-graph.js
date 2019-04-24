@@ -43,6 +43,7 @@ function SDGGraph(data) {
     const NODE_SCALE = 1.5;
 
     this.data = data;
+    let parent = this;
     let collapseData = createCollapseData(data);
     let emptyData = {nodes: [], links: []};
     let graphData = data;
@@ -407,8 +408,12 @@ function SDGGraph(data) {
                 }
             });
 
-        link.filter(d => !(d.type === REL_NEWERPATCHVERSION)).classed("warning", false);
-        link.filter(d => d.type === REL_NEWERPATCHVERSION).classed("warning", true);
+        link.filter(d => !(d.type === REL_NEWERPATCHVERSION))
+            .classed("warning", false)
+            .classed("dash", false);
+        link.filter(d => d.type === REL_NEWERPATCHVERSION)
+            .classed("warning", true)
+            .classed("dash", true);
 
         // ENTER new links
         let linkEnter = link.enter().append("g");
@@ -428,7 +433,9 @@ function SDGGraph(data) {
             })
             .call(function(link) { link.transition(td).attr("stroke-width", 3); });
 
-        linkEnter.filter(d => d.type === REL_NEWERPATCHVERSION).classed("warning", true);
+        linkEnter.filter(d => d.type === REL_NEWERPATCHVERSION)
+            .classed("warning", true)
+            .classed("dash", true);
 
         linkEnter.filter(d => { return d.type !== REL_OWN })
             .append("text")
@@ -902,6 +909,7 @@ function SDGGraph(data) {
         svg.transition().duration(600).call(zoom.transform, transform);
 
         openNodeCard(d, d3.event.active);
+        parent.selectedNode = d;
     }
 
     function dragstarted(d) {
@@ -1112,6 +1120,8 @@ function SDGGraph(data) {
 
             stickNode = null;
             stickEvent = null;
+
+            parent.selectedNode = null;
         });
 
         // Card header
