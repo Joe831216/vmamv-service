@@ -35,7 +35,8 @@ $(document).ready( function () {
 function connectSocket() {
     let socket = new SockJS("/mgp-websocket");
     stompClient = Stomp.over(socket);
-    stompClient.connect({}, function (frame) {
+    stompClient.reconnect_delay = 5000;
+    stompClient.connect({}, (frame) => {
         toast.find(".toast-header")
             .attr("class", "toast-header text-white bg-primary")
             .prepend("<i class='fas fa-info-circle mr-2'></i>");

@@ -6,6 +6,7 @@ import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.monitor.SpcData;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureErrorNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureStatusRateWarningNotification;
+import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.LowUsageVersionNotification;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
 import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
@@ -47,7 +48,7 @@ public class MonitorService {
         List<String> systemNames = generalRepository.getAllSystemName();
         for (String systemName : systemNames) {
             List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
-            checkLowUsage(systemName, services, 60);
+            checkLowUsageVersionAlert(systemName, services, 60);
         }
     }
 
@@ -241,8 +242,7 @@ public class MonitorService {
     }
 
     // Find low-usage version of apps
-    private void checkLowUsage(String systemName, List<Service> services, int samplingDurationMinutes) {
-        Set<String> checkedApp = new HashSet<>();
+    private void checkLowUsageVersionAlert(String systemName, List<Service> services, int samplingDurationMinutes) {
         Map<String, Set<String>> appNameAndVerSetMap = new HashMap<>();
         for (Service service : services) {
             appNameAndVerSetMap.merge(service.getAppName(), new HashSet<>(Arrays.asList(service.getVersion())),
@@ -250,15 +250,37 @@ public class MonitorService {
                 oldSet.add(service.getVersion());
                 return oldSet;
             });
-
-            checkedApp.add(service.getAppName());
         }
         appNameAndVerSetMap.forEach((appName, versions) -> {
-            for (String version : versions) {
-                logger.info(systemName + ":" + appName + ":" + version + " usage metrics: " +
-                        logAnalyzer.getAppUsageMetrics(systemName, appName, version, samplingDurationMinutes));
-            }
+            SpcData usageSpc = createLowUsageVersionSPC(systemName, appName, versions, samplingDurationMinutes);
+            //logger.info(systemName + ":" + appName + " usage SPC, CL = " + usageSpc.getCl() + " UCL = " + usageSpc.getUcl() + " LCL = " + usageSpc.getLcl());
+            usageSpc.getValues().forEach((version, usageMetrics) -> {
+                //logger.info(systemName + ":" + appName + ":" + version + " usage metrics: " + usageMetrics);
+                if (usageMetrics < usageSpc.getLcl()) {
+                    notificationService.pushNotificationToSystem(systemName, new LowUsageVersionNotification(appName, version));
+                    //logger.info("Found low usage version service: " + systemName + ":" + appName + ":" + version);
+                }
+            });
         });
+    }
+
+    private SpcData createLowUsageVersionSPC(String systemName, String appName, Set<String> versions, int samplingDurationMinutes) {
+        float valueCount = 0;
+        int samplesNum = versions.size();
+        Map<String, Float> values = new HashMap<>();
+        for (String version : versions) {
+            float usageMetrics = logAnalyzer.getAppUsageMetrics(systemName, appName, version, samplingDurationMinutes);
+            valueCount += usageMetrics;
+            values.put(version, usageMetrics);
+        }
+        float cl = valueCount / samplesNum;
+        float sd = getCChartSD(cl);
+        float ucl = cl + 3*sd;
+        float lcl = cl - 3*sd;
+        if (lcl < 0) {
+            lcl = 0;
+        }
+        return new SpcData(cl, ucl, lcl, values);
     }
 
 }

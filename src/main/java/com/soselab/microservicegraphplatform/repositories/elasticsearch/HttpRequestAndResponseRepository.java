@@ -22,6 +22,6 @@ public interface HttpRequestAndResponseRepository extends ElasticsearchRepositor
     List<MgpLog> findErrorBySystemNameAndAppNameAndVersion(String systemName, String appName, String version);
 
     @Query("{\"bool\":{\"must\":[{\"range\":{\"@timestamp\":{\"gt\":\"now-?3m\"}}},{\"match\":{\"systemName\":\"?0\"}},{\"match\":{\"appName\":\"?1\"}},{\"match\":{\"version\":\"?2\"}},{\"match\":{\"logger_name.keyword\":\"org.zalando.logbook.Logbook\"}},{\"match\":{\"message\":\"request\"}}]}}")
-    List<MgpLog> findRecentMinutesRequestBySystemNameAndAppNameAndVersion(String systemName, String appName, String version, int minutes);
+    List<MgpLog> findRecentMinutesRequestBySystemNameAndAppNameAndVersion(String systemName, String appName, String version, int minutes, Pageable pageable);
 
 }

@@ -110,7 +110,8 @@ public class LogAnalyzer {
     }
 
     public Float getAppUsageMetrics(String systemName, String appName, String version, int samplingDurationMinutes) {
-        List<MgpLog> requests = httpRequestAndResponseRepository.findRecentMinutesRequestBySystemNameAndAppNameAndVersion(systemName, appName, version, samplingDurationMinutes);
+        List<MgpLog> requests = httpRequestAndResponseRepository.findRecentMinutesRequestBySystemNameAndAppNameAndVersion
+                (systemName, appName, version, samplingDurationMinutes, new PageRequest(0, 10000, new Sort(Sort.Direction.DESC, "@timestamp")));
         LocalDateTime endDateTime = LocalDateTime.now();
         LocalDateTime startDateTime = endDateTime.minus(samplingDurationMinutes, ChronoUnit.MINUTES);
         float usage = 0;

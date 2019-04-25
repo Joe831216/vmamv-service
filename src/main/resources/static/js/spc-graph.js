@@ -1,28 +1,17 @@
 function SPCGraph(divId, type,  data) {
+    this.divId = divId;
+    this.type = type;
+    this.data = data;
+
     let apps = Object.keys(data.values);
     let values = Object.values(data.values);
-    let viols = getViols(data.values, data.ucl);
+    let viols = this.getViols(data.values, data.ucl);
     let clStart = Object.keys(data.values)[0];
     let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
     let sdRange = data.ucl - data.cl;
     let uLimit = data.ucl + sdRange;
     let lLimit = data.lcl - sdRange;
     if (lLimit < 0) { lLimit = 0 }
-
-    function getViols(d, ucl) {
-        let viols = {};
-        for (let key in d) {
-            if (d[key] > ucl) {
-                viols[key] = d[key];
-            }
-        }
-        return viols;
-    }
-
-    function camelCaseToSentenceCase(text) {
-        let spaced = text.replace( /([A-Z])/g, " $1" );
-        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-    }
 
     // data
     let Data = {
@@ -56,10 +45,10 @@ function SPCGraph(divId, type,  data) {
         name: 'Violation',
         showlegend: true,
         marker: {
-            color: 'rgb(255,65,54)',
-            line: {width: 3},
-            opacity: 0.5,
-            size: 16,
+            color: 'rgb(38, 38, 38)',
+            line: {width: 5},
+            opacity: 1,
+            size: 20,
             symbol: 'circle-open'
         }
     };
@@ -119,7 +108,7 @@ function SPCGraph(divId, type,  data) {
 
     // layout
     let layout = {
-        title: "Control Chart - " + camelCaseToSentenceCase(type),
+        title: "Control Chart - " + this.camelCaseToSentenceCase(type),
         margin: {pad: 3},
         xaxis: {
             title: 'Services',
@@ -127,7 +116,7 @@ function SPCGraph(divId, type,  data) {
             zeroline: false
         },
         yaxis: {
-            title: camelCaseToSentenceCase(type),
+            title: this.camelCaseToSentenceCase(type),
             range: [lLimit,uLimit],
             zeroline: true
         },
@@ -142,62 +131,67 @@ function SPCGraph(divId, type,  data) {
     };
 
     Plotly.newPlot(divId, plotData, layout, {responsive: true, showSendToCloud: true});
-
-    this.updateData = function (data) {
-        let apps = Object.keys(data.values);
-        let values = Object.values(data.values);
-        let viols = getViols(data.values, data.ucl);
-        let clStart = Object.keys(data.values)[0];
-        let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
-        let sdRange = data.ucl - data.cl;
-        let uLimit = data.ucl + sdRange;
-        let lLimit = data.lcl - sdRange;
-        if (lLimit < 0) { lLimit = 0 }
-
-        Data['x'] = apps;
-        Data['y'] = values;
-        Data['marker']['color'] = values;
-        Viol['x'] = Object.keys(viols);
-        Viol['y'] = Object.values(viols);
-        histo['x'] = apps;
-        histo['y'] = values;
-        CL['x'] = [clStart, clEnd, null, clStart, clEnd];
-        CL['y'] = [data.lcl, data.lcl, null, data.ucl, data.ucl];
-        Centre['x'] = [clStart, clEnd];
-        Centre['y'] = [data.cl, data.cl];
-
-        Plotly.animate(divId, {
-            data: [{x: Data['x'], y: Data['y'], marker: { color: Data['marker']['color'] }},
-                {x: Viol['x'], y: Viol['y']},
-                {x: CL['x'], y: CL['y']},
-                {x: Centre['x'], y: Centre['y']},
-                {x: histo['x'], y: histo['y']}],
-            traces: [0, 1, 2, 3, 4],
-            layout: {}
-        }, {
-            transition: {
-                duration: 500,
-                easing: 'cubic-in-out'
-            },
-            frame: {
-                duration: 500
-            }
-        });
-
-        Plotly.animate(divId, {
-            layout: {
-                yaxis: {
-                    range: [lLimit,uLimit]
-                },
-                yaxis2: {
-                    range: [lLimit,uLimit]
-                }
-            }
-        }, {
-            transition: {
-                duration: 500,
-                easing: 'cubic-in-out'
-            }
-        });
-    };
 }
+
+SPCGraph.prototype.getViols = function (d, ucl) {
+    let viols = {};
+    for (let key in d) {
+        if (d[key] > ucl) {
+            viols[key] = d[key];
+        }
+    }
+    return viols;
+};
+
+SPCGraph.prototype.camelCaseToSentenceCase = function (text) {
+    let spaced = text.replace( /([A-Z])/g, " $1" );
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
+
+SPCGraph.prototype.updateData = function (data) {
+    this.data = data;
+
+    let apps = Object.keys(data.values);
+    let values = Object.values(data.values);
+    let viols = this.getViols(data.values, data.ucl);
+    let clStart = Object.keys(data.values)[0];
+    let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
+    let sdRange = data.ucl - data.cl;
+    let uLimit = data.ucl + sdRange;
+    let lLimit = data.lcl - sdRange;
+    if (lLimit < 0) { lLimit = 0 }
+
+    Plotly.animate(this.divId, {
+        data: [{x: apps, y: values, marker: { color: values }},
+            {x: Object.keys(viols), y: Object.values(viols)},
+            {x: [clStart, clEnd, null, clStart, clEnd], y: [data.lcl, data.lcl, null, data.ucl, data.ucl]},
+            {x: [clStart, clEnd], y: [data.cl, data.cl]},
+            {x: apps, y: values}],
+        traces: [0, 1, 2, 3, 4],
+        layout: {}
+    }, {
+        transition: {
+            duration: 500,
+            easing: 'cubic-in-out'
+        },
+        frame: {
+            duration: 500
+        }
+    });
+
+    Plotly.animate(this.divId, {
+        layout: {
+            yaxis: {
+                range: [lLimit,uLimit]
+            },
+            yaxis2: {
+                range: [lLimit,uLimit]
+            }
+        }
+    }, {
+        transition: {
+            duration: 500,
+            easing: 'cubic-in-out'
+        }
+    });
+};
