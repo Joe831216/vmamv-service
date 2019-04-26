@@ -12,12 +12,17 @@ public class ServiceDownNotification extends WebNotification {
     }
 
     public ServiceDownNotification(String appName, String version) {
-        super(WebNotification.LEVEL_INFO, "Service down", createContent(appName, version), LocalDateTime.now());
+        super(WebNotification.LEVEL_INFO, "Service down", createContent(appName, version),
+                createHtmlContent(appName, version), LocalDateTime.now());
         this.appName = appName;
         this.version = version;
     }
 
     private static String createContent(String appName, String version) {
+        return "Service \"" + appName + " : " + version + "\" is down.";
+    }
+
+    private static String createHtmlContent(String appName, String version) {
         return "Service <strong>" + appName + " : " + version + "</strong> is down.";
     }
 

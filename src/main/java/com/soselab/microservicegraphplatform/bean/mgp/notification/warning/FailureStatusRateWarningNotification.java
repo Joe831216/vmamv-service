@@ -15,12 +15,27 @@ public class FailureStatusRateWarningNotification extends WarningNotification {
     }
 
     public FailureStatusRateWarningNotification(String appName, String version, Float value, Float threshold, String dataType, String thresholdType) {
-        super("High failure status rate", createContent(appName, version, value, threshold, dataType, thresholdType));
+        super("High failure status rate", createContent(appName, version, value, threshold, dataType, thresholdType),
+                createHtmlContent(appName, version, value, threshold, dataType, thresholdType));
         this.appName = appName;
         this.version = version;
     }
 
     private static String createContent(String appName, String version, Float value, Float threshold, String dataType, String thresholdType) {
+        String content = "";
+        if (thresholdType.equals(THRESHOLD_USER)) {
+            content = "Service \"" + appName + ":" + version +
+                    "\" exceeded the threshold of \"failure status rate\": current value (" + dataType + ") = " +
+                    value * 100 + "%, threshold = " + threshold*100 + "%";
+        } else if (thresholdType.equals(THRESHOLD_SPC)){
+            content = "The \"failure status rate\" of service \"" + appName + ":" + version +
+                    "\" exceeds the system's \"UCL\": current value (" + dataType + ") = " +
+                    value * 100 + "%, UCL = " + threshold*100 + "%";
+        }
+        return content;
+    }
+
+    private static String createHtmlContent(String appName, String version, Float value, Float threshold, String dataType, String thresholdType) {
         String content = "";
         if (thresholdType.equals(THRESHOLD_USER)) {
             content = "Service <strong>" + appName + ":" + version +

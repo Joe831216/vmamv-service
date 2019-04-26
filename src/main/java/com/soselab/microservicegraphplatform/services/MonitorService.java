@@ -163,7 +163,7 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values);
+        return new SpcData(cl, ucl, lcl, values, "Failure Status Rate", "Services");
     }
 
     public SpcData getFailureStatusRateSPC(String systemName) {
@@ -196,7 +196,7 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values);
+        return new SpcData(cl, ucl, lcl, values, "Average Duration", "Services");
     }
 
     public SpcData getAverageDurationSPC(String systemName) {
@@ -226,7 +226,7 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values);
+        return new SpcData(cl, ucl, lcl, values, "Duration", appInfo[1] + ":" + appInfo[2]);
     }
 
     private float getPChartSD(float cl, float n) {
@@ -252,7 +252,7 @@ public class MonitorService {
             });
         }
         appNameAndVerSetMap.forEach((appName, versions) -> {
-            SpcData usageSpc = createLowUsageVersionSPC(systemName, appName, versions, samplingDurationMinutes);
+            SpcData usageSpc = createVersionUsageSPC(systemName, appName, versions, samplingDurationMinutes);
             //logger.info(systemName + ":" + appName + " usage SPC, CL = " + usageSpc.getCl() + " UCL = " + usageSpc.getUcl() + " LCL = " + usageSpc.getLcl());
             usageSpc.getValues().forEach((version, usageMetrics) -> {
                 //logger.info(systemName + ":" + appName + ":" + version + " usage metrics: " + usageMetrics);
@@ -264,7 +264,7 @@ public class MonitorService {
         });
     }
 
-    private SpcData createLowUsageVersionSPC(String systemName, String appName, Set<String> versions, int samplingDurationMinutes) {
+    private SpcData createVersionUsageSPC(String systemName, String appName, Set<String> versions, int samplingDurationMinutes) {
         float valueCount = 0;
         int samplesNum = versions.size();
         Map<String, Float> values = new HashMap<>();
@@ -280,7 +280,16 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values);
+        return new SpcData(cl, ucl, lcl, values, "Usage", appName);
+    }
+
+    public SpcData getVersionUsageSPC(String systemName, String appName) {
+        List<Service> services = serviceRepository.findAllVersInSameSysBySysNameAndAppName(systemName, appName);
+        Set<String> versions = new HashSet<>();
+        for (Service service : services) {
+            versions.add(service.getVersion());
+        }
+        return createVersionUsageSPC(systemName, appName, versions, 60);
     }
 
 }

@@ -9,8 +9,8 @@ public class WarningNotification extends WebNotification {
     public WarningNotification() {
     }
 
-    public WarningNotification(String title, String content) {
-        super(WebNotification.LEVEL_WARNING, title, content, LocalDateTime.now());
+    public WarningNotification(String title, String content, String htmlContent) {
+        super(WebNotification.LEVEL_WARNING, title, content, htmlContent, LocalDateTime.now());
     }
 
 }

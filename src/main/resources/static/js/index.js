@@ -24,12 +24,13 @@ $(document).ready( function () {
                 let sysButton = $("<button></button>")
                     .attr("class", "dropdown-item")
                     .attr("value", systemName)
-                    .attr("onclick", "startGraph(this)")
+                    .attr("onclick", "startSDGGraph(this)")
                     .append(systemName);
                 menu.append(sysButton);
             });
         });
-        connectSocket();
+    connectSocket();
+    requestNotificationPermission();
 });
 
 function connectSocket() {
@@ -45,6 +46,16 @@ function connectSocket() {
         toast.toast('show');
         console.log("Connected: " + frame);
     });
+}
+
+function requestNotificationPermission() {
+    if (Notification && Notification.permission !== "granted") {
+        Notification.requestPermission(function (status) {
+            if (Notification.permission !== status) {
+                Notification.permission = status;
+            }
+        })
+    }
 }
 
 let addInlineStyle = function(children) {
@@ -69,16 +80,16 @@ downloadGraphLink.ready = false;
 downloadGraphLink.click(function () {
     if (!downloadGraphLink.ready) {
         event.preventDefault();
-        graph.stopSimulation();
+        sdgGraph.stopSimulation();
         let svg = document.querySelector("#sdg-canvas").cloneNode(true);
         document.body.appendChild(svg);
         addInlineStyle(svg.childNodes);
         html2canvas(svg).then(canvas => {
             svg.remove();
-            graph.restartSimulation();
+            sdgGraph.restartSimulation();
             downloadGraphLink.attr("href", canvas.toDataURL("image/png"), 1.0);
             let dt = new Date();
-            downloadGraphLink.attr("download", "SDG_" + startGraph.systemName + "_" +  dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate() + ".png");
+            downloadGraphLink.attr("download", "SDG_" + startSDGGraph.systemName + "_" +  dt.getFullYear() + "-" + dt.getMonth() + "-" + dt.getDate() + ".png");
             downloadGraphLink.ready = true;
             this.click();
         });
@@ -99,12 +110,16 @@ function exportSVG() {
     downloadGraphLink.attr("download", "graph.svg");
 }
 
-let subscribeGraph = null;
+let subscribeSdgGraph = null;
 let subscribeNotify = null;
-let graph = null;
+let sdgGraph = null;
 
-function startGraph(systemName) {
-    startGraph.systemName = systemName.value;
+let subscribeSpcGraph = null;
+let spcGraph = null;
+let spcStartProcess = null;
+
+function startSDGGraph(systemName) {
+    startSDGGraph.systemName = systemName.value;
 
     $("#systemsDropdownMenuButton")
         .text(systemName.value);
@@ -119,10 +134,10 @@ function startGraph(systemName) {
         .css("pointer-events", "none");
 
     // If graph exist, unsubscribe and clear graph.
-    if (subscribeGraph !== null && graph !== null) {
-        subscribeGraph.unsubscribe();
-        graph.closeNodeCard();
-        graph = null;
+    if (subscribeSdgGraph !== null && sdgGraph !== null) {
+        subscribeSdgGraph.unsubscribe();
+        sdgGraph.closeNodeCard();
+        sdgGraph = null;
         $("#graph g").remove();
     }
 
@@ -131,12 +146,40 @@ function startGraph(systemName) {
     }
 
     // Subscribe graph topic
-    subscribeGraph = stompClient.subscribe("/topic/graph/" + systemName.value, function (message) {
+    subscribeSdgGraph = stompClient.subscribe("/topic/graph/" + systemName.value, function (message) {
         let data = JSON.parse(message.body);
-        if (graph === null) {
-            graph = new SDGGraph(data);
+        if (sdgGraph === null) {
+            sdgGraph = new SDGGraph(data);
+            $(sdgGraph).on('selectNode', function (event, node) {
+                if (showControlChart[0].checked) {
+                    let setting = getSpcSetting();
+                    if (setting) {
+                        if (setting.target === "app") {
+                            if (node.labels.includes("Service")) {
+                                if (spcStartProcess) {
+                                    spcStartProcess.stop();
+                                }
+                                if (spcCanvas.hasClass("collapse")) {
+                                    sdgCanvas.addClass("split-up");
+                                    spcCanvas.addClass("split-down");
+                                    spcCanvas.removeClass("collapse");
+                                    window.dispatchEvent(new Event('resize'));
+                                }
+                                spcStartProcess = new StartSPCGraph(startSDGGraph.systemName, setting.type, setting.protocol);
+                            } else {
+                                spcCanvas.addClass("collapse");
+                                sdgCanvas.removeClass("split-up");
+                                spcCanvas.removeClass("split-down");
+                                spcGraph = null;
+                                window.dispatchEvent(new Event('resize'));
+                                spcCanvas.empty();
+                            }
+                        }
+                    }
+                }
+            });
         } else {
-            graph.updateData(data);
+            sdgGraph.updateData(data);
         }
     });
 
@@ -163,7 +206,7 @@ function startGraph(systemName) {
             "<strong class='mr-auto'>" + notification.title + "</strong>" +
             "<small>" + notification.dateTime + "</small>" +
             "</div>" +
-            "<div class='toast-body'>" + notification.content + "</div>" +
+            "<div class='toast-body'>" + notification.htmlContent + "</div>" +
             "</div>" +
             "</button>";
     }
@@ -184,7 +227,7 @@ function startGraph(systemName) {
                 let item = $(createNotificationDropdownItem(notification));
                 if (notification.appName && notification.version) {
                     item.click(function () {
-                        graph.clickNodeByNameAndVersion(notification.appName, notification.version)
+                        sdgGraph.clickNodeByNameAndVersion(notification.appName, notification.version)
                     });
                 }
                 notificationsDropdown.append(item);
@@ -194,6 +237,12 @@ function startGraph(systemName) {
     // Subscribe notification topic
     subscribeNotify = stompClient.subscribe("/topic/notification/" + systemName.value, function (message) {
         let data = JSON.parse(message.body);
+        notificationCount++;
+        toastNotification(data);
+        desktopNotification(data);
+    });
+
+    function toastNotification(data) {
         toast.find("i").remove();
         if (data.level === NOTI_LEVEL_INFO) {
             toast.find(".toast-header")
@@ -209,28 +258,29 @@ function startGraph(systemName) {
                 .prepend("<i class='fas fa-bug mr-2'></i>");
         }
         toast.find("strong").empty().append(data.title);
-        toast.find(".toast-body").empty().append(data.content);
+        toast.find(".toast-body").empty().append(data.htmlContent);
         toast.toast('show');
 
-        notificationCount++;
         let item = $(createNotificationDropdownItem(data));
         if (data.appName && data.version) {
             item.click(function () {
-                graph.clickNodeByNameAndVersion(data.appName, data.version)
+                sdgGraph.clickNodeByNameAndVersion(data.appName, data.version)
             });
         }
         notificationsDropdown.prepend(item);
         removeNotificationDropdownItem();
-    });
+    }
 
-    stompClient.send("/mgp/graph/" + systemName.value);
-
-    if (showControlChart[0].checked) {
-        let type = getSpcSetting();
-        if (type) {
-            StartSPCGraph(startGraph.systemName, type);
+    function desktopNotification(data) {
+        if (Notification.permission === "granted") {
+            let n = new Notification(data.content, {tag: data.title});
+            n.onclick = function () {
+                sdgGraph.clickNodeByNameAndVersion(data.appName, data.version);
+            }
         }
     }
+
+    stompClient.send("/mgp/graph/" + systemName.value);
 }
 
 function getSpcSetting() {
@@ -247,10 +297,6 @@ function getSpcSetting() {
     return setting;
 }
 
-let subscribeSpcGraph = null;
-let spcGraph = null;
-let spcStartProcess = null;
-
 showControlChart.on("change", function () {
     if (spcStartProcess) {
         spcStartProcess.stop();
@@ -258,21 +304,23 @@ showControlChart.on("change", function () {
     if (this.checked) {
         let setting = getSpcSetting();
         if (setting) {
-            if ((setting.target === "app" && graph.selectedNode) || setting.target === "apps") {
+            if ((setting.target === "app" && sdgGraph.selectedNode) || setting.target === "apps") {
                 sdgCanvas.addClass("split-up");
                 spcCanvas.addClass("split-down");
                 spcCanvas.removeClass("collapse");
-                spcStartProcess = new StartSPCGraph(startGraph.systemName, setting.type, setting.protocol);
+                window.dispatchEvent(new Event('resize'));
+                spcStartProcess = new StartSPCGraph(startSDGGraph.systemName, setting.type, setting.protocol);
             }
         }
     } else {
         spcCanvas.addClass("collapse");
         sdgCanvas.removeClass("split-up");
         spcCanvas.removeClass("split-down");
+        window.dispatchEvent(new Event('resize'));
         spcGraph = null;
         spcCanvas.empty();
     }
-    window.dispatchEvent(new Event('resize'));
+
 });
 
 spcTypesInput.on("change", function () {
@@ -281,14 +329,14 @@ spcTypesInput.on("change", function () {
     }
     if (showControlChart[0].checked) {
         let setting = getSpcSetting();
-        if (setting && ((setting.target === "app" && graph.selectedNode) || setting.target === "apps")) {
+        if (setting && ((setting.target === "app" && sdgGraph.selectedNode) || setting.target === "apps")) {
             sdgCanvas.addClass("split-up");
             spcCanvas.addClass("split-down");
             spcCanvas.removeClass("collapse");
-            spcStartProcess = new StartSPCGraph(startGraph.systemName, setting.type, setting.protocol);
+            window.dispatchEvent(new Event('resize'));
+            spcStartProcess = new StartSPCGraph(startSDGGraph.systemName, setting.type, setting.protocol);
         }
     }
-    window.dispatchEvent(new Event('resize'));
 });
 
 function StartSPCGraph(systemName, type, protocol) {
@@ -308,9 +356,8 @@ function StartSPCGraph(systemName, type, protocol) {
             initOrUpdateSpcGraph(data);
         });
         stompClient.send("/mgp/graph/spc/" + type + "/" + systemName);
-    } else if (graph.selectedNode.labels.includes("Service")) {
-        let appId = graph.selectedNode.appId;
-        console.log(appId);
+    } else if (sdgGraph.selectedNode.labels.includes("Service")) {
+        let appId = sdgGraph.selectedNode.appId;
         fetch("/web-page/app/spc/" + type + "/" + appId)
             .then(response => response.json())
             .then(data => {
@@ -327,7 +374,7 @@ function StartSPCGraph(systemName, type, protocol) {
 
     function initOrUpdateSpcGraph(data) {
         if (spcGraph === null) {
-            spcGraph = new SPCGraph(spcCanvas.prop('id'), type, data);
+            spcGraph = new SPCGraph(spcCanvas.prop('id'), data);
         } else {
             spcGraph.updateData(data);
         }

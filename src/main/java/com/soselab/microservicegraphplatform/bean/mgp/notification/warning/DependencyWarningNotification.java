@@ -15,7 +15,8 @@ public class DependencyWarningNotification extends WarningNotification {
     }
 
     public DependencyWarningNotification(String appName, String version, Integer value, Integer threshold, String thresholdType) {
-        super(createTitle(thresholdType), createContent(appName, version, value, threshold, thresholdType));
+        super(createTitle(thresholdType), createContent(appName, version, value, threshold, thresholdType),
+                createHtmlContent(appName, version, value, threshold, thresholdType));
         this.appName = appName;
         this.version = version;
     }
@@ -29,6 +30,12 @@ public class DependencyWarningNotification extends WarningNotification {
     }
 
     private static String createContent(String appName, String version, Integer value, Integer threshold, String thresholdType) {
+        return "Service \"" + appName + ":" + version +
+                "\" exceeded the threshold of \"" + thresholdType + "\": current value = " +
+                value + ", threshold = " + threshold;
+    }
+
+    private static String createHtmlContent(String appName, String version, Integer value, Integer threshold, String thresholdType) {
         return "Service <strong>" + appName + ":" + version +
                 "</strong> exceeded the threshold of <strong>" + thresholdType + "</strong>: current value = " +
                 value + ", threshold = " + threshold;

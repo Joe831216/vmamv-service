@@ -8,15 +8,19 @@ public class SpcData {
     private float ucl;
     private float lcl;
     private Map<String, Float> values;
+    private String valueName;
+    private String samplingName;
 
     public SpcData() {
     }
 
-    public SpcData(float cl, float ucl, float lcl, Map<String, Float> values) {
+    public SpcData(float cl, float ucl, float lcl, Map<String, Float> values, String valueName, String samplingName) {
         this.cl = cl;
         this.ucl = ucl;
         this.lcl = lcl;
         this.values = values;
+        this.valueName = valueName;
+        this.samplingName = samplingName;
     }
 
     public float getCl() {
@@ -51,4 +55,19 @@ public class SpcData {
         this.values = values;
     }
 
+    public String getValueName() {
+        return valueName;
+    }
+
+    public void setValueName(String valueName) {
+        this.valueName = valueName;
+    }
+
+    public String getSamplingName() {
+        return samplingName;
+    }
+
+    public void setSamplingName(String samplingName) {
+        this.samplingName = samplingName;
+    }
 }

@@ -10,12 +10,16 @@ public class LowUsageVersionNotification extends WarningNotification {
     }
 
     public LowUsageVersionNotification(String appName, String version) {
-        super("Low usage version", createContent(appName, version));
+        super("Low usage version", createContent(appName, version), createHtmlContent(appName, version));
         this.appName = appName;
         this.version = version;
     }
 
     private static String createContent(String appName, String version) {
+        return "Found low-usage service version \"" + appName +":" + version + "\"";
+    }
+
+    private static String createHtmlContent(String appName, String version) {
         return "Found low-usage service version <strong>" + appName +":" + version + "</strong>";
     }
 

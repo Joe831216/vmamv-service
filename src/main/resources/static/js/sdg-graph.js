@@ -43,22 +43,19 @@ function SDGGraph(data) {
     const NODE_SCALE = 1.5;
 
     this.data = data;
+
     let parent = this;
     let collapseData = createCollapseData(data);
     let emptyData = {nodes: [], links: []};
     let graphData = data;
 
     let canvas = document.getElementById("sdg-canvas");
-
     let graph = document.getElementById("graph");
     graph.setAttribute("width", canvas.clientWidth);
     graph.setAttribute("height", canvas.clientHeight);
-
     let body = document.body;
     body.setAttribute("height", canvas.clientHeight);
-
     let svg = d3.select("svg");
-
     let graphWidth = +svg.attr("width");
     let graphHeight = +svg.attr("height");
 
@@ -910,6 +907,7 @@ function SDGGraph(data) {
 
         openNodeCard(d, d3.event.active);
         parent.selectedNode = d;
+        $(parent).trigger('selectNode', d);
     }
 
     function dragstarted(d) {

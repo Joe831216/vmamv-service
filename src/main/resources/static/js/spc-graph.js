@@ -1,6 +1,5 @@
-function SPCGraph(divId, type,  data) {
+function SPCGraph(divId, data) {
     this.divId = divId;
-    this.type = type;
     this.data = data;
 
     let apps = Object.keys(data.values);
@@ -108,15 +107,15 @@ function SPCGraph(divId, type,  data) {
 
     // layout
     let layout = {
-        title: "Control Chart - " + this.camelCaseToSentenceCase(type),
+        title: "Control Chart - " + data.valueName,
         margin: {pad: 3},
         xaxis: {
-            title: 'Services',
+            title: data.samplingName,
             domain: [0, 0.7], // 0 to 70% of width
             zeroline: false
         },
         yaxis: {
-            title: this.camelCaseToSentenceCase(type),
+            title: data.valueName,
             range: [lLimit,uLimit],
             zeroline: true
         },

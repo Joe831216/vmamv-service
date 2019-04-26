@@ -14,12 +14,17 @@ public class OlderVersionNotification extends WarningNotification {
     }
 
     public OlderVersionNotification(String appName, String version, String olderVersion, String level) {
-        super("Found older version", createContent(appName, version, olderVersion, level));
+        super("Found older version", createContent(appName, version, olderVersion, level),
+                createHtmlContent(appName, version, olderVersion, level));
         this.appName = appName;
         this.version = version;
     }
 
     private static String createContent(String appName, String version, String olderVersion, String level) {
+        return "Found older " + level + " version of service: \"" + appName + ":" + version + " → " + olderVersion + "\"";
+    }
+
+    private static String createHtmlContent(String appName, String version, String olderVersion, String level) {
         return "Found older " + level + " version of service: <strong>" + appName + ":" + version + " → " + olderVersion + "</strong>";
     }
 

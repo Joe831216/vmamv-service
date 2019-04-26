@@ -18,16 +18,18 @@ public class WebNotification {
     private String level;
     private String title;
     private String content;
+    private String htmlContent;
     @JsonFormat(pattern = "yyyy-MM-dd hh:mm:ss")
     private LocalDateTime dateTime;
 
     public WebNotification() {
     }
 
-    public WebNotification(String level, String title, String content, LocalDateTime dateTime) {
+    public WebNotification(String level, String title, String content, String htmlContent, LocalDateTime dateTime) {
         this.level = level;
         this.title = title;
         this.content = content;
+        this.htmlContent = htmlContent;
         this.dateTime = dateTime;
     }
 
@@ -53,6 +55,14 @@ public class WebNotification {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getHtmlContent() {
+        return htmlContent;
+    }
+
+    public void setHtmlContent(String htmlContent) {
+        this.htmlContent = htmlContent;
     }
 
     public LocalDateTime getDateTime() {

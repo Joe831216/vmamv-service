@@ -12,12 +12,17 @@ public class ServiceUpNotification extends WebNotification {
     }
 
     public ServiceUpNotification(String appName, String version) {
-        super(WebNotification.LEVEL_INFO, "Service up", createContent(appName, version), LocalDateTime.now());
+        super(WebNotification.LEVEL_INFO, "Service up", createContent(appName, version),
+                createHtmlContent(appName, version), LocalDateTime.now());
         this.appName = appName;
         this.version = version;
     }
 
     private static String createContent(String appName, String version) {
+        return "Service \"" + appName + " : " + version + "\" is up.";
+    }
+
+    private static String createHtmlContent(String appName, String version) {
         return "Service <strong>" + appName + " : " + version + "</strong> is up.";
     }
 

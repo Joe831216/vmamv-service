@@ -200,6 +200,11 @@ public class WebPageController {
         return monitorService.getAppDurationSPC(appId);
     }
 
+    @GetMapping("/app/spc/usage/{systemName}/{appName}")
+    public SpcData getVersionUsageSpc(@PathVariable("systemName") String systemName, @PathVariable("appName") String appName) {
+        return monitorService.getVersionUsageSPC(systemName, appName);
+    }
+
     @GetMapping("/notification/{systemName}")
     public List<WebNotification> getNotifications(@PathVariable("systemName") String systemName) {
         return notificationService.getNotificationsOfSystem(systemName);
