@@ -43,13 +43,14 @@ public class MonitorService {
     private Map<String, SpcData> failureStatusRateSPCMap = new HashMap<>();
     private Map<String, SpcData> averageDurationSPCMap = new HashMap<>();
 
-    @Scheduled(cron = "0 0 0/1 1/1 * ?")
-    private void everyHoursScheduled() {
+    @Scheduled(cron = "0 0 3 1/1 * ?")
+    private void everyDayScheduled() {
         List<String> systemNames = generalRepository.getAllSystemName();
         for (String systemName : systemNames) {
             List<Service> services = serviceRepository.findBySystemNameWithOptionalSettingNotNull(systemName);
-            checkLowUsageVersionAlert(systemName, services, 60);
+            checkLowUsageVersionAlert(systemName, services, 1440);
         }
+        logger.info("Daily scheduled executed");
     }
 
     public void runScheduled(String systemName) {
@@ -105,6 +106,19 @@ public class MonitorService {
     private Pair<Boolean, Float> isFailureStatusRateExceededThreshold(AppMetrics metrics, float threshold) {
         float failureStatusRate = metrics.getFailureStatusRate();
         return new ImmutablePair<>(failureStatusRate > threshold, failureStatusRate);
+    }
+
+    // Follow codes are for SPC
+    private float getPChartSD(float cl, float n) {
+        return (float) Math.sqrt(cl*(1-cl)/n);
+    }
+
+    private float getUChartSD(float cl, float n) {
+        return (float) Math.sqrt(cl/n);
+    }
+
+    private float getCChartSD(float cl) {
+        return (float) Math.sqrt(cl);
     }
 
     private void checkSPCAlert(String systemName) {
@@ -163,7 +177,7 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values, "Failure Status Rate", "Services");
+        return new SpcData(cl, ucl, lcl, values, "Failure Status Rate", "Services", new ArrayList<>(Collections.singletonList(SpcData.UCL)));
     }
 
     public SpcData getFailureStatusRateSPC(String systemName) {
@@ -196,7 +210,7 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values, "Average Duration", "Services");
+        return new SpcData(cl, ucl, lcl, values, "Average Duration", "Services", new ArrayList<>(Collections.singletonList(SpcData.UCL)));
     }
 
     public SpcData getAverageDurationSPC(String systemName) {
@@ -206,7 +220,10 @@ public class MonitorService {
     // C chart
     public SpcData getAppDurationSPC(String appId) {
         String[] appInfo = appId.split(":");
-        List<MgpLog> logs = logAnalyzer.getRecentResponseLogs(appInfo[0], appInfo[1], appInfo[2], 100);
+        String systemName = appInfo[0];
+        String appName = appInfo[1];
+        String version = appInfo[2];
+        List<MgpLog> logs = logAnalyzer.getRecentResponseLogs(systemName, appName, version, 100);
         float valueCount = 0;
         int samplesNum = 0;
         Map<String, Float> values = new LinkedHashMap<>();
@@ -226,19 +243,8 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values, "Duration", appInfo[1] + ":" + appInfo[2]);
-    }
-
-    private float getPChartSD(float cl, float n) {
-        return (float) Math.sqrt(cl*(1-cl)/n);
-    }
-
-    private float getUChartSD(float cl, float n) {
-        return (float) Math.sqrt(cl/n);
-    }
-
-    private float getCChartSD(float cl) {
-        return (float) Math.sqrt(cl);
+        return new SpcData(cl, ucl, lcl, values, "Duration", appName + ":" + version,
+                new ArrayList<>(Collections.singletonList(SpcData.UCL)));
     }
 
     // Find low-usage version of apps
@@ -280,10 +286,13 @@ public class MonitorService {
         if (lcl < 0) {
             lcl = 0;
         }
-        return new SpcData(cl, ucl, lcl, values, "Usage", appName);
+        return new SpcData(cl, ucl, lcl, values, "Usage", appName, new ArrayList<>(Collections.singletonList(SpcData.LCL)));
     }
 
-    public SpcData getVersionUsageSPC(String systemName, String appName) {
+    public SpcData getVersionUsageSPC(String appId) {
+        String[] appInfo = appId.split(":");
+        String systemName = appInfo[0];
+        String appName = appInfo[1];
         List<Service> services = serviceRepository.findAllVersInSameSysBySysNameAndAppName(systemName, appName);
         Set<String> versions = new HashSet<>();
         for (Service service : services) {

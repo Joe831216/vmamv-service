@@ -4,7 +4,7 @@ function SPCGraph(divId, data) {
 
     let apps = Object.keys(data.values);
     let values = Object.values(data.values);
-    let viols = this.getViols(data.values, data.ucl);
+    let viols = this.getViols(data.values, data.violations, data.ucl, data.lcl);
     let clStart = Object.keys(data.values)[0];
     let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
     let sdRange = data.ucl - data.cl;
@@ -132,13 +132,26 @@ function SPCGraph(divId, data) {
     Plotly.newPlot(divId, plotData, layout, {responsive: true, showSendToCloud: true});
 }
 
-SPCGraph.prototype.getViols = function (d, ucl) {
+SPCGraph.prototype.getViols = function (d, viol, ucl, lcl) {
     let viols = {};
-    for (let key in d) {
-        if (d[key] > ucl) {
-            viols[key] = d[key];
+    if (Object.keys(d).length > 1) {
+        if (viol.includes("ucl")) {
+            for (let key in d) {
+                if (d[key] > ucl) {
+                    viols[key] = d[key];
+                }
+            }
+        }
+
+        if (viol.includes("lcl")) {
+            for (let key in d) {
+                if (d[key] < ucl) {
+                    viols[key] = d[key];
+                }
+            }
         }
     }
+
     return viols;
 };
 
@@ -152,7 +165,7 @@ SPCGraph.prototype.updateData = function (data) {
 
     let apps = Object.keys(data.values);
     let values = Object.values(data.values);
-    let viols = this.getViols(data.values, data.ucl);
+    let viols = this.getViols(data.values, data.violations, data.ucl, data.lcl);
     let clStart = Object.keys(data.values)[0];
     let clEnd = Object.keys(data.values)[Object.keys(data.values).length - 1];
     let sdRange = data.ucl - data.cl;

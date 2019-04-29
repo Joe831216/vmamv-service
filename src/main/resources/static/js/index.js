@@ -13,7 +13,7 @@ let spcTypesInput = $('#spcGraphOptionsMenuLink').parent().find("input[name='con
 let notificationsDropdown = $("#notificationsMenuLink").parent().find(".dropdown-menu");
 let stompClient = null;
 
-$('#spc-app-duration-dropdown-item').tooltip();
+$('.tip').tooltip();
 
 $(document).ready( function () {
     fetch("/web-page/system-names")
