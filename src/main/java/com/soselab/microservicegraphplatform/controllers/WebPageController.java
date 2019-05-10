@@ -115,23 +115,7 @@ public class WebPageController {
 
     @GetMapping("/app/setting/{appId}")
     public AppSetting getSetting(@PathVariable("appId") String appId) {
-        Setting settingNode = settingRepository.findByConfigServiceAppId(appId);
-        AppSetting setting = new AppSetting();
-        if (settingNode != null) {
-            if (settingNode.getEnableRestFailureAlert() != null) setting.setEnableRestFailureAlert(settingNode.getEnableRestFailureAlert());
-            if (settingNode.getEnableLogFailureAlert() != null) setting.setEnableLogFailureAlert(settingNode.getEnableLogFailureAlert());
-            if (settingNode.getFailureStatusRate() != null) setting.setFailureStatusRate(settingNode.getFailureStatusRate());
-            if (settingNode.getFailureErrorCount() != null) setting.setFailureErrorCount(settingNode.getFailureErrorCount());
-
-            if (settingNode.getEnableStrongDependencyAlert() != null) setting.setEnableStrongDependencyAlert(settingNode.getEnableStrongDependencyAlert());
-            if (settingNode.getStrongUpperDependencyCount() != null) setting.setStrongUpperDependencyCount(settingNode.getStrongUpperDependencyCount());
-            if (settingNode.getStrongLowerDependencyCount() != null) setting.setStrongLowerDependencyCount(settingNode.getStrongLowerDependencyCount());
-
-            if (settingNode.getEnableWeakDependencyAlert() != null) setting.setEnableWeakDependencyAlert(settingNode.getEnableWeakDependencyAlert());
-            if (settingNode.getWeakUpperDependencyCount() != null) setting.setWeakUpperDependencyCount(settingNode.getWeakUpperDependencyCount());
-            if (settingNode.getWeakLowerDependencyCount() != null) setting.setWeakLowerDependencyCount(settingNode.getWeakLowerDependencyCount());
-        }
-        return setting;
+        return new AppSetting(settingRepository.findByConfigServiceAppId(appId));
     }
 
     @PostMapping("/app/setting/{appId}")
@@ -139,20 +123,9 @@ public class WebPageController {
         if (setting != null) {
             Setting oldSetting = settingRepository.findByConfigServiceAppId(appId);
             if (oldSetting != null) {
-                if (setting.getFailureStatusRate() != null) oldSetting.setFailureStatusRate(setting.getFailureStatusRate());
-                if (setting.getFailureErrorCount() != null) oldSetting.setFailureErrorCount(setting.getFailureErrorCount());
-                if (setting.getEnableRestFailureAlert() != null) oldSetting.setEnableRestFailureAlert(setting.getEnableRestFailureAlert());
-                if (setting.getEnableLogFailureAlert() != null) oldSetting.setEnableLogFailureAlert(setting.getEnableLogFailureAlert());
-
-                if (setting.getEnableStrongDependencyAlert() != null) oldSetting.setEnableStrongDependencyAlert(setting.getEnableStrongDependencyAlert());
-                if (setting.getStrongUpperDependencyCount() != null) oldSetting.setStrongUpperDependencyCount(setting.getStrongUpperDependencyCount());
-                if (setting.getStrongLowerDependencyCount() != null) oldSetting.setStrongLowerDependencyCount(setting.getStrongLowerDependencyCount());
-
-                if (setting.getEnableWeakDependencyAlert() != null) oldSetting.setEnableWeakDependencyAlert(setting.getEnableWeakDependencyAlert());
-                if (setting.getWeakUpperDependencyCount() != null) oldSetting.setWeakUpperDependencyCount(setting.getWeakUpperDependencyCount());
-                if (setting.getWeakLowerDependencyCount() != null) oldSetting.setWeakLowerDependencyCount(setting.getWeakLowerDependencyCount());
-
-                settingRepository.save(oldSetting);
+                settingRepository.delete(oldSetting);
+                setting.setConfigService(oldSetting.getConfigService());
+                settingRepository.save(setting);
             } else {
                 Service service = serviceRepository.findByAppId(appId);
                 if (service != null) {

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SettingRepository extends Neo4jRepository<Setting, Long> {
 
-    @Query("MATCH (s:Setting)<-[:MGP_CONFIG]-(n:Service {appId:{appId}}) RETURN s")
+    @Query("MATCH (s:Setting)<-[r:MGP_CONFIG]-(n:Service {appId:{appId}}) RETURN s, r, n")
     Setting findByConfigServiceAppId(@Param("appId") String appId);
 
 }

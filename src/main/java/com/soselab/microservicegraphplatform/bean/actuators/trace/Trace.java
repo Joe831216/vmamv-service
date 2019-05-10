@@ -4,15 +4,14 @@ public class Trace {
 
     private Long timestamp;
     private TraceInfo info;
-    private String timeTaken;
+
 
     public Trace() {
     }
 
-    public Trace(Long timestamp, TraceInfo info, String timeTaken) {
+    public Trace(Long timestamp, TraceInfo info) {
         this.timestamp = timestamp;
         this.info = info;
-        this.timeTaken = timeTaken;
     }
 
     public Long getTimestamp() {
@@ -29,14 +28,6 @@ public class Trace {
 
     public void setInfo(TraceInfo info) {
         this.info = info;
-    }
-
-    public String getTimeTaken() {
-        return timeTaken;
-    }
-
-    public void setTimeTaken(String timeTaken) {
-        this.timeTaken = timeTaken;
     }
 
 }

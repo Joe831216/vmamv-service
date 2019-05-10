@@ -32,8 +32,8 @@ public class RestInfoAnalyzer {
     private Integer getAverageResponseDuration(List<Trace> traces) {
         long durationCount = 0;
         for (Trace trace : traces) {
-            if (trace.getTimeTaken() != null) {
-                durationCount += Long.parseLong(trace.getTimeTaken());
+            if (trace.getInfo().getTimeTaken() != null) {
+                durationCount += Long.parseLong(trace.getInfo().getTimeTaken());
             }
         }
         return (int) durationCount / traces.size();

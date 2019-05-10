@@ -5,14 +5,16 @@ public class TraceInfo {
     private String method;
     private String path;
     private Headers headers;
+    private String timeTaken;
 
     public TraceInfo() {
     }
 
-    public TraceInfo(String method, String path, Headers headers) {
+    public TraceInfo(String method, String path, Headers headers, String timeTaken) {
         this.method = method;
         this.path = path;
         this.headers = headers;
+        this.timeTaken = timeTaken;
     }
 
     public String getMethod() {
@@ -39,4 +41,11 @@ public class TraceInfo {
         this.headers = headers;
     }
 
+    public String getTimeTaken() {
+        return timeTaken;
+    }
+
+    public void setTimeTaken(String timeTaken) {
+        this.timeTaken = timeTaken;
+    }
 }

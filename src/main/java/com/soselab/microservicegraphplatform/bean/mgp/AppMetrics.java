@@ -44,7 +44,7 @@ public class AppMetrics {
     public float getFailureStatusRate() {
         float failureStatusRate = 1;
         for (Status status : this.statuses) {
-            if (status.getCode() == 200) {
+            if (status.getCode() < 400) {
                 failureStatusRate -= status.getRatio();
                 break;
             }

@@ -37,7 +37,7 @@ public class LogAnalyzer {
         if (averageDuration != null) {
             metrics.setAverageDuration(averageDuration);
         }
-        //logger.info(systemName + ":" + appName + ":" + version + " : average duration calculate by recent " + responseLogs.size() + " responses: " + metrics.getAverageDuration() + "ms");
+        //logger.info(systemName + ":" + appName + ":" + version + " : average duration calculate by recent " + responseLogs.size() + " responses: " + metrics.getThresholdAverageDuration() + "ms");
         metrics.setStatuses(getResponseStatusMetrics(responseLogs));
         metrics.setErrorCount(getErrorCount(systemName, appName, version));
         //logger.info(systemName + ":" + appName + ":" + version + " : error count: " + metrics.getErrorCount());

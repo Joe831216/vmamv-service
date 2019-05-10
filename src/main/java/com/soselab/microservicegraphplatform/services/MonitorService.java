@@ -4,9 +4,7 @@ import com.soselab.microservicegraphplatform.bean.elasticsearch.MgpLog;
 import com.soselab.microservicegraphplatform.bean.mgp.AppMetrics;
 import com.soselab.microservicegraphplatform.bean.mgp.WebNotification;
 import com.soselab.microservicegraphplatform.bean.mgp.monitor.SpcData;
-import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureErrorNotification;
-import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.FailureStatusRateWarningNotification;
-import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.LowUsageVersionNotification;
+import com.soselab.microservicegraphplatform.bean.mgp.notification.warning.*;
 import com.soselab.microservicegraphplatform.bean.neo4j.Service;
 import com.soselab.microservicegraphplatform.bean.neo4j.Setting;
 import com.soselab.microservicegraphplatform.controllers.WebPageController;
@@ -67,35 +65,70 @@ public class MonitorService {
                 continue;
             }
             // Using log (Elasticsearch) metrics
-            if (setting.getEnableLogFailureAlert()) {
+            if (setting.getEnableLogFailureAlert() || setting.getEnableLogAverageDurationAlert()) {
                 AppMetrics metrics = logAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion());
-                // Failure status rate
-                Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
-                        (metrics, setting.getFailureStatusRate());
-                if (failureStatusRateResult.getKey()) {
-                    WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
-                            service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
-                            FailureStatusRateWarningNotification.DATA_ELASTICSEARCH, FailureStatusRateWarningNotification.THRESHOLD_USER);
-                    notificationService.pushNotificationToSystem(systemName, notification);
+                if (setting.getEnableLogFailureAlert()) {
+                    // Failure status rate
+                    Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
+                            (metrics, setting.getFailureStatusRate());
+                    if (failureStatusRateResult.getKey()) {
+                        WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
+                                service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
+                                FailureStatusRateWarningNotification.DATA_ELASTICSEARCH, FailureStatusRateWarningNotification.THRESHOLD_USER);
+                        notificationService.pushNotificationToSystem(systemName, notification);
+                    }
+                    // Error
+                    if (setting.getFailureErrorCount() != null && metrics.getErrorCount() > setting.getFailureErrorCount()) {
+                        WebNotification notification = new FailureErrorNotification(service.getAppName(), service.getVersion(),
+                                metrics.getErrorCount(), setting.getFailureErrorCount(), FailureErrorNotification.TYPE_ELASTICSEARCH);
+                        notificationService.pushNotificationToSystem(systemName, notification);
+                        logger.info("Found service " + service.getAppId() + " exception: error count = " +
+                                metrics.getErrorCount() + " (threshold = " + setting.getFailureErrorCount() + ")");
+                    }
                 }
-                // Error
-                if (setting.getFailureErrorCount() != null && metrics.getErrorCount() > setting.getFailureErrorCount()) {
-                    WebNotification notification = new FailureErrorNotification(service.getAppName(), service.getVersion(),
-                            metrics.getErrorCount(), setting.getFailureErrorCount(), FailureErrorNotification.TYPE_ELASTICSEARCH);
-                    notificationService.pushNotificationToSystem(systemName, notification);
-                    logger.info("Found service " + service.getAppId() + " exception: error count = " +
-                            metrics.getErrorCount() + " (threshold = " + setting.getFailureErrorCount() + ")");
+                if (setting.getEnableLogAverageDurationAlert()) {
+                    if (setting.getThresholdAverageDuration() != null && metrics.getAverageDuration() > setting.getThresholdAverageDuration()) {
+                        WebNotification notification = new HighAvgDurationNotification(service.getAppName(), service.getVersion(),
+                                metrics.getAverageDuration(), setting.getThresholdAverageDuration(), HighAvgDurationNotification.DATA_ELASTICSEARCH);
+                        notificationService.pushNotificationToSystem(systemName, notification);
+                    }
                 }
             }
             // Using rest (Spring Actuator) metrics
-            if (setting.getEnableRestFailureAlert()) {
+            if (setting.getEnableRestFailureAlert() || setting.getEnableRestAverageDurationAlert()) {
                 AppMetrics metrics = restInfoAnalyzer.getMetrics(service.getSystemName(), service.getAppName(), service.getVersion());
-                Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
-                        (metrics, setting.getFailureStatusRate());
-                if (failureStatusRateResult.getKey()) {
-                    WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
-                            service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
-                            FailureStatusRateWarningNotification.DATA_ACTUATOR, FailureStatusRateWarningNotification.THRESHOLD_USER);
+                // Failure status rate
+                if (setting.getEnableRestFailureAlert()) {
+                    Pair<Boolean, Float> failureStatusRateResult = isFailureStatusRateExceededThreshold
+                            (metrics, setting.getFailureStatusRate());
+                    if (failureStatusRateResult.getKey()) {
+                        WebNotification notification = new FailureStatusRateWarningNotification(service.getAppName(),
+                                service.getVersion(), failureStatusRateResult.getValue(), setting.getFailureStatusRate(),
+                                FailureStatusRateWarningNotification.DATA_ACTUATOR, FailureStatusRateWarningNotification.THRESHOLD_USER);
+                        notificationService.pushNotificationToSystem(systemName, notification);
+                    }
+                }
+                if (setting.getEnableRestAverageDurationAlert()) {
+                    if (setting.getThresholdAverageDuration() != null && metrics.getAverageDuration() > setting.getThresholdAverageDuration()) {
+                        WebNotification notification = new HighAvgDurationNotification(service.getAppName(), service.getVersion(),
+                                metrics.getAverageDuration(), setting.getThresholdAverageDuration(), HighAvgDurationNotification.DATA_ACTUATOR);
+                        notificationService.pushNotificationToSystem(systemName, notification);
+                    }
+                }
+            }
+            // Using SPC
+            if (setting.getEnableSPCHighDurationRateAlert()) {
+                SpcData spcData = getAppDurationSPC(service.getAppId());
+                int violationCount = 0;
+                for (Map.Entry<String, Float> entry : spcData.getValues().entrySet()) {
+                    if (entry.getValue() > spcData.getUcl()) {
+                        violationCount++;
+                    }
+                }
+                float highDurationRate = (float) violationCount / spcData.getValues().size();
+                if (highDurationRate > setting.getThresholdSPCHighDurationRate()) {
+                    WebNotification notification = new SpcHighDurationRateNotification(service.getAppName(), service.getVersion(),
+                            highDurationRate, setting.getThresholdSPCHighDurationRate());
                     notificationService.pushNotificationToSystem(systemName, notification);
                 }
             }

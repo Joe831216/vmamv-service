@@ -1035,10 +1035,19 @@ function SDGGraph(data) {
     let metricsElasticsearchJson = $("#metrics-elasticsearch-json");
 
     let nodeSettingforms = $("#node-setting-form");
+
     let failureStatusRateInput = nodeSettingforms.find("#failure-status-rate");
     let failureErrorCountInput = nodeSettingforms.find("#failure-error-count");
     let enableRestFailureAlertInput = nodeSettingforms.find("#enable-rest-failure-alert");
     let enableLogFailureAlertInput = nodeSettingforms.find("#enable-log-failure-alert");
+
+    let thresholdSPCHighDurationRateInput = nodeSettingforms.find("#threshold-spc-high-duration-rate");
+    let enableSPCHighDurationRateAlertInput = nodeSettingforms.find("#enable-spc-high-duration-rate-alert");
+
+    let thresholdAverageDurationInput = nodeSettingforms.find("#threshold-average-duration");
+    let enableRestAverageDurationAlertInput = nodeSettingforms.find("#enable-rest-average-duration-alert");
+    let enableLogAverageDurationAlertInput = nodeSettingforms.find("#enable-log-average-duration-alert");
+
     let strongUpperDependencyCountInput = nodeSettingforms.find("#strong-upper-dependency-count");
     let strongLowerDependencyCountInput = nodeSettingforms.find("#strong-lower-dependency-count");
     let enableStrongDependencyAlertInput = nodeSettingforms.find("#enable-strong-dependency-alert");
@@ -1048,6 +1057,10 @@ function SDGGraph(data) {
 
     $("#failure-status-rate").on("input", function () {
         $("#failure-status-rate-text").val(this.value + "%");
+    }).trigger("change");
+
+    $("#threshold-spc-high-duration-rate").on("input", function () {
+        $("#threshold-spc-high-duration-rate-text").val(this.value + "%");
     }).trigger("change");
 
     let stickNode = null;
@@ -1298,6 +1311,33 @@ function SDGGraph(data) {
                 } else {
                     enableLogFailureAlertInput.prop("checked", false);
                 }
+                // Init SPC high duration rate inputs
+                if (!isNaN(json.thresholdSPCHighDurationRate)) {
+                    thresholdSPCHighDurationRateInput.val(json.thresholdSPCHighDurationRate * 100).trigger("input");
+                } else {
+                    thresholdSPCHighDurationRateInput.val(100).trigger("input");
+                }
+                if (json.enableSPCHighDurationRateAlert) {
+                    enableSPCHighDurationRateAlertInput.prop("checked", true);
+                } else {
+                    enableSPCHighDurationRateAlertInput.prop("checked", false);
+                }
+                // Init average duration inputs
+                if (!isNaN(json.thresholdAverageDuration)) {
+                    thresholdAverageDurationInput.val(json.thresholdAverageDuration).trigger("input");
+                } else {
+                    thresholdAverageDurationInput.val("");
+                }
+                if (json.enableRestAverageDurationAlert) {
+                    enableRestAverageDurationAlertInput.prop("checked", true);
+                } else {
+                    enableRestAverageDurationAlertInput.prop("checked", false);
+                }
+                if (json.enableLogAverageDurationAlert) {
+                    enableLogAverageDurationAlertInput.prop("checked", true);
+                } else {
+                    enableLogAverageDurationAlertInput.prop("checked", false);
+                }
                 // Init strong dependency alert inputs
                 if (!isNaN(json.strongUpperDependencyCount)) {
                     strongUpperDependencyCountInput.val(json.strongUpperDependencyCount);
@@ -1342,7 +1382,7 @@ function SDGGraph(data) {
                 if (form.checkValidity() !== false) {
                     let data = {};
                     nodeSettingforms.find("input").each((index, input) => {
-                        if (input.name === "failureStatusRate") {
+                        if (input.type === "range") {
                             data[input.name] = input.value * 0.01;
                         } else if (input.type === "checkbox") {
                             data[input.name] = input.checked;

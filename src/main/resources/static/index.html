@@ -312,7 +312,7 @@
 									</div>
 									<div class="dropdown-item">
 										<div class="custom-control custom-radio">
-											<input type="radio" id="spc-apps-average-duration" name="controlChartType" class="custom-control-input" value="averageDuration" data-protocol="websocket" data-target="apps">
+											<input type="radio" id="spc-apps-average-duration" name="controlChartType" class="custom-control-input" value="thresholdAverageDuration" data-protocol="websocket" data-target="apps">
 											<label class="custom-control-label" for="spc-apps-average-duration">Average duration (multiple services)</label>
 										</div>
 									</div>
@@ -417,10 +417,10 @@
 								<h5 class="card-title">Failure alert</h5>
                                 <h6 class="card-subtitle mt-4 mb-2 text-muted">Thresholds</h6>
                                 <div class="form-group">
-                                    <label for="failure-status-rate">Failure status rate</label>
+                                    <label for="failure-status-rate">Failure status rate (recent 100 response)</label>
                                     <output for="failure-status-rate" id="failure-status-rate-text">100%</output>
                                     <input name="failureStatusRate" type="range" class="custom-range" id="failure-status-rate" value="100">
-                                    <label for="failure-error-count">Error count (per hours)</label>
+                                    <label for="failure-error-count">Error count (recent one hour)</label>
                                     <input name="failureErrorCount" type="number" class="form-control" id="failure-error-count" placeholder="Maximum number of error logs per hours" min="0">
                                 </div>
                                 <h6 class="card-subtitle mt-4 mb-2 text-muted">Switches</h6>
@@ -434,6 +434,40 @@
                                         <label class="custom-control-label" for="enable-log-failure-alert">Enable failure alert by using data from Elasticsearch</label>
                                     </div>
                                 </div>
+
+                                <h5 class="card-title">Duration alert</h5>
+                                <h6 class="card-subtitle mt-4 mb-2 text-muted">Thresholds</h6>
+                                <div class="form-group">
+                                    <label for="threshold-spc-high-duration-rate">SPC high duration rate (recent 100 response)</label>
+                                    <output for="threshold-spc-high-duration-rate" id="threshold-spc-high-duration-rate-text">100%</output>
+                                    <input name="thresholdSPCHighDurationRate" type="range" class="custom-range" id="threshold-spc-high-duration-rate" value="100">
+                                </div>
+                                <h6 class="card-subtitle mt-4 mb-2 text-muted">Switches</h6>
+                                <div class="form-group">
+									<div class="custom-control custom-switch">
+										<input name="enableSPCHighDurationRateAlert" type="checkbox" class="custom-control-input" id="enable-spc-high-duration-rate-alert">
+										<label class="custom-control-label" for="enable-spc-high-duration-rate-alert">Enable SPC high duration rate alert by using data from Elasticsearch</label>
+									</div>
+                                </div>
+
+								<h5 class="card-title">Average duration alert</h5>
+								<h6 class="card-subtitle mt-4 mb-2 text-muted">Thresholds</h6>
+								<div class="form-group">
+									<label for="threshold-average-duration">Average duration (recent 100 response)</label>
+									<input name="thresholdAverageDuration" type="number" class="form-control" id="threshold-average-duration" placeholder="Maximum average duration of responses" min="0">
+								</div>
+								<h6 class="card-subtitle mt-4 mb-2 text-muted">Switches</h6>
+								<div class="form-group">
+									<div class="custom-control custom-switch">
+										<input name="enableRestAverageDurationAlert" type="checkbox" class="custom-control-input" id="enable-rest-average-duration-alert">
+										<label class="custom-control-label" for="enable-rest-average-duration-alert">Enable average duration alert by using data from Spring Actuator</label>
+									</div>
+									<div class="custom-control custom-switch">
+										<input name="enableLogAverageDurationAlert" type="checkbox" class="custom-control-input" id="enable-log-average-duration-alert">
+										<label class="custom-control-label" for="enable-log-average-duration-alert">Enable average duration alert by using data from Elasticsearch</label>
+									</div>
+								</div>
+
 								<h5 class="card-title">Strong dependency alert</h5>
 								<h6 class="card-subtitle mt-4 mb-2 text-muted">Thresholds</h6>
 								<div class="form-group">
