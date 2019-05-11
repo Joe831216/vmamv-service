@@ -97,103 +97,93 @@ public class GraphService {
             for (ServiceRegistry serviceRegistry : registries) {
                 // Get latest app list by request the first instance that own by this service registry
                 String systemName = serviceRegistry.getSystemName();
-                ArrayList<Instance> instances = instanceRepository.findByServiceRegistryAppId(serviceRegistry.getAppId());
-                if (instances.size() > 0) {
-                    Instance instance = instances.get(0);
-                    try {
-                        String url = "http://" + instance.getIpAddr() + ":" + instance.getPort() + "/eureka/apps/";
-                        AppsList eurekaAppsList = restTemplate.getForObject(url, AppsList.class);
-                        Map<String, Pair<MgpApplication, Integer>> eurekaAppsInfoAndNum =
-                                springRestTool.getAppsInfoAndNumFromEurekaAppList(systemName, eurekaAppsList);
-                        List<Service> ServicesInDB = serviceRepository.findBySysName(serviceRegistry.getSystemName());
-                        List<NullService> nullServiceInDB = serviceRepository.findNullBySysName(serviceRegistry.getSystemName());
-                        // Check the service should be created or updated or removed in graph DB.
-                        Map<String, Pair<MgpApplication, Integer>> newAppsMap = new HashMap<>();
-                        Map<String, Pair<MgpApplication, Integer>> recoveryAppsMap = new HashMap<>();
-                        Map<String, Pair<MgpApplication, Integer>> updateAppsMap;
-                        Set<String> removeAppsSet = new HashSet<>();
-                        // Find new apps and recover apps, then remove from eurekaAppsInfoAndNum.
-                        for (Iterator<Map.Entry<String, Pair<MgpApplication, Integer>>> it = eurekaAppsInfoAndNum.entrySet().iterator(); it.hasNext();) {
-                            Map.Entry<String, Pair<MgpApplication, Integer>> entry = it.next();
-                            boolean isUpInDB = false;
-                            boolean isNull = false;
-                            for (Service dbApp : ServicesInDB) {
-                                if (entry.getKey().equals(dbApp.getAppId())) {
-                                    isUpInDB = true;
-                                    break;
-                                }
-                            }
-                            for (NullService nullDbApp: nullServiceInDB) {
-                                if (entry.getKey().equals(nullDbApp.getAppId())) {
-                                    isNull = true;
-                                    break;
-                                }
-                            }
-                            if (!isUpInDB) {
-                                if (isNull) {
-                                    recoveryAppsMap.put(entry.getKey(), entry.getValue());
-                                } else {
-                                    newAppsMap.put(entry.getKey(), entry.getValue());
-                                }
-                                it.remove();
-                            }
+                Map<String, Pair<MgpApplication, Integer>> eurekaAppsInfoAndNum =
+                        springRestTool.getAppsInfoAndNumFromEurekaAppList(systemName, serviceRegistry.getAppId());
+                List<Service> ServicesInDB = serviceRepository.findBySysName(serviceRegistry.getSystemName());
+                List<NullService> nullServiceInDB = serviceRepository.findNullBySysName(serviceRegistry.getSystemName());
+                // Check the service should be created or updated or removed in graph DB.
+                Map<String, Pair<MgpApplication, Integer>> newAppsMap = new HashMap<>();
+                Map<String, Pair<MgpApplication, Integer>> recoveryAppsMap = new HashMap<>();
+                Map<String, Pair<MgpApplication, Integer>> updateAppsMap;
+                Set<String> removeAppsSet = new HashSet<>();
+                // Find new apps and recover apps, then remove from eurekaAppsInfoAndNum.
+                for (Iterator<Map.Entry<String, Pair<MgpApplication, Integer>>> it = eurekaAppsInfoAndNum.entrySet().iterator(); it.hasNext();) {
+                    Map.Entry<String, Pair<MgpApplication, Integer>> entry = it.next();
+                    boolean isUpInDB = false;
+                    boolean isNull = false;
+                    for (Service dbApp : ServicesInDB) {
+                        if (entry.getKey().equals(dbApp.getAppId())) {
+                            isUpInDB = true;
+                            break;
                         }
-                        // The remaining apps in eurekaAppsInfoAndNum should be updated.
-                        updateAppsMap = eurekaAppsInfoAndNum;
-                        // Find apps not in eurekaAppsInfoAndNum.
-                        for (Service dbApp : ServicesInDB) {
-                            boolean isInRefreshList = false;
-                            for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: eurekaAppsInfoAndNum.entrySet()) {
-                                if (dbApp.getAppId().equals(entry.getKey())) {
-                                    isInRefreshList = true;
-                                    break;
-                                }
-                            }
-                            if (!isInRefreshList) {
-                                removeAppsSet.add(dbApp.getAppId());
-                            }
+                    }
+                    for (NullService nullDbApp: nullServiceInDB) {
+                        if (entry.getKey().equals(nullDbApp.getAppId())) {
+                            isNull = true;
+                            break;
                         }
-
-                        // Update the dependency graph.
-                        Map<String, Map<String, Object>> appSwaggers = addServices(serviceRegistry, newAppsMap);
-                        appSwaggers.putAll(recoverServices(serviceRegistry, recoveryAppsMap));
-
-                        newAppsMap.putAll(recoveryAppsMap);
-                        addDependencies(newAppsMap, appSwaggers);
-
-                        boolean appsUpdated = updateServices(updateAppsMap);
-                        removeServices(systemName, removeAppsSet);
-
-                        // If the graph was be updated then return true.
-                        if (newAppsMap.size() > 0 || removeAppsSet.size() > 0 || appsUpdated) {
-                            // App up notification.
-                            if (newAppsMap.size() > 0) {
-                                for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: newAppsMap.entrySet()) {
-                                    String appName = entry.getValue().getKey().getAppName();
-                                    String version = entry.getValue().getKey().getVersion();
-                                    notificationService.pushNotificationToSystem(systemName, new ServiceUpNotification(appName, version));
-                                }
-                            }
-                            // App down notification.
-                            if (removeAppsSet.size() > 0) {
-                                for (String appId : removeAppsSet) {
-                                    String appName = appId.split(":")[1];
-                                    String version = appId.split(":")[2];
-                                    notificationService.pushNotificationToSystem(systemName, new ServiceDownNotification(appName, version));
-                                }
-                            }
-
-                            graphAnalyzer.checkDependenciesOfAppsInSystem(systemName);
-
-                            updated.put(systemName, true);
+                    }
+                    if (!isUpInDB) {
+                        if (isNull) {
+                            recoveryAppsMap.put(entry.getKey(), entry.getValue());
                         } else {
-                            updated.put(systemName, false);
+                            newAppsMap.put(entry.getKey(), entry.getValue());
                         }
-                        monitorService.runScheduled(systemName);
-                    } catch (ResourceAccessException e) {
-                        logger.error(e.getMessage(), e);
+                        it.remove();
                     }
                 }
+                // The remaining apps in eurekaAppsInfoAndNum should be updated.
+                updateAppsMap = eurekaAppsInfoAndNum;
+                // Find apps not in eurekaAppsInfoAndNum.
+                for (Service dbApp : ServicesInDB) {
+                    boolean isInRefreshList = false;
+                    for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: eurekaAppsInfoAndNum.entrySet()) {
+                        if (dbApp.getAppId().equals(entry.getKey())) {
+                            isInRefreshList = true;
+                            break;
+                        }
+                    }
+                    if (!isInRefreshList) {
+                        removeAppsSet.add(dbApp.getAppId());
+                    }
+                }
+
+                // Update the dependency graph.
+                Map<String, Map<String, Object>> appSwaggers = addServices(serviceRegistry, newAppsMap);
+                appSwaggers.putAll(recoverServices(serviceRegistry, recoveryAppsMap));
+
+                newAppsMap.putAll(recoveryAppsMap);
+                addDependencies(newAppsMap, appSwaggers);
+
+                boolean appsUpdated = updateServices(updateAppsMap);
+                removeServices(systemName, removeAppsSet);
+
+                // If the graph was be updated then return true.
+                if (newAppsMap.size() > 0 || removeAppsSet.size() > 0 || appsUpdated) {
+                    // App up notification.
+                    if (newAppsMap.size() > 0) {
+                        for (Map.Entry<String, Pair<MgpApplication, Integer>> entry: newAppsMap.entrySet()) {
+                            String appName = entry.getValue().getKey().getAppName();
+                            String version = entry.getValue().getKey().getVersion();
+                            notificationService.pushNotificationToSystem(systemName, new ServiceUpNotification(appName, version));
+                        }
+                    }
+                    // App down notification.
+                    if (removeAppsSet.size() > 0) {
+                        for (String appId : removeAppsSet) {
+                            String appName = appId.split(":")[1];
+                            String version = appId.split(":")[2];
+                            notificationService.pushNotificationToSystem(systemName, new ServiceDownNotification(appName, version));
+                        }
+                    }
+
+                    graphAnalyzer.checkDependenciesOfAppsInSystem(systemName);
+
+                    updated.put(systemName, true);
+                } else {
+                    updated.put(systemName, false);
+                }
+                monitorService.runScheduled(systemName);
             }
         }
 
