@@ -6,7 +6,7 @@ problems and service anomalies and immediately notifies users of problems before
 The VMAMV system consists of [VMAMVS (vmamv-service)](https://github.com/Joe831216/vmamv-service) and client-side libraries. The VMAMVS is the major service of VMAMV system.
 ## How to use?
 ### Dependencies
-VMAMVS dependents on Neo4j and Elasticsearch, make sure you already deploy them.
+VMAMVS dependents on [Neo4j](https://neo4j.com/) + [APOC](https://neo4j-contrib.github.io/neo4j-apoc-procedures/) and [Elasticsearch](https://www.elastic.co), make sure you already deploy them.
 * Neo4j Recommend version: 3.5
 * Elasticsearch Recommend version: 6.7
 ### Configurations
