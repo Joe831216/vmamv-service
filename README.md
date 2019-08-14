@@ -2,8 +2,8 @@
 The VMAMV is a tool for monitoring microservice systems, generating visualized version-based service dependency graphs, and providing graph search
 services. The proposed scheme is called Version-based Microservice Analysis, Monitoring, and Visualization (VMAMV). This system automatically detects potential design
 problems and service anomalies and immediately notifies users of problems before or shortly after they occur.
-# VMAMVS
-The VMAMV system consists of VMAMVS (VMAMV Service) and client-side libraries. The VMAMVS is the major service of VMAMV system.
+# VMAMVS (vmamv-service)
+The VMAMV system consists of [VMAMVS (vmamv-service)](https://github.com/Joe831216/vmamv-service) and client-side libraries. The VMAMVS is the major service of VMAMV system.
 ## How to use?
 ### Dependencies
 VMAMVS dependents on Neo4j and Elasticsearch, make sure you already deploy them.
